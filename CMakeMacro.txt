@@ -1,0 +1,84 @@
+
+FUNCTION( source_group_by_dir source_files group_PREFIX )
+if (WIN32)
+   SET(sgbd_cur_dir ${CMAKE_CURRENT_SOURCE_DIR})
+   FOREACH(sgbd_file ${${source_files}})
+       STRING(REGEX REPLACE ^./\(.*\) \\1 sgbd_file ${sgbd_file})
+       STRING(REGEX REPLACE ${sgbd_cur_dir}/\(.*\) \\1 sgbd_fpath ${sgbd_file})
+       STRING(REGEX REPLACE "\(.*\)/.*" \\1 sgbd_group_name ${sgbd_fpath})
+       #Message( "sgbd_group_name=${sgbd_group_name}    sgbd_fpath=${sgbd_fpath}" )
+       STRING(COMPARE EQUAL ${sgbd_fpath} ${sgbd_group_name} sgbd_nogroup)
+       STRING(REPLACE "/" "\\" sgbd_group_name ${sgbd_group_name})
+       if(sgbd_nogroup)
+           SET(sgbd_group_name "\\")
+       ENDIF(sgbd_nogroup)
+       SOURCE_GROUP("${group_PREFIX}\\${sgbd_group_name}" FILES ${sgbd_file})
+   ENDFOREACH(sgbd_file)
+endif()
+ENDFUNCTION(source_group_by_dir)
+
+
+FUNCTION( ADD_SHARED Name INCS SRCS )
+source_group_by_dir(INCS "Header Files")
+source_group_by_dir(SRCS "Source Files")
+add_library( ${Name} SHARED ${INCS};${SRCS} )
+
+if (NOT WINDOWS_PHONE)
+	set_target_properties( ${Name} PROPERTIES
+	VERSION 1
+	DEBUG_POSTFIX "_d"
+	)
+endif ()
+
+if (WIN32)
+
+#set_target_properties( ${Name} PROPERTIES
+#PREFIX      "lib"
+#)
+
+endif (WIN32)
+
+ENDFUNCTION(ADD_SHARED)
+
+
+FUNCTION( ADD_STATIC Name INCS SRCS )
+source_group_by_dir(INCS "Header Files")
+source_group_by_dir(SRCS "Source Files")
+add_library( ${Name} STATIC ${INCS};${SRCS} )
+
+if (NOT WINDOWS_PHONE)
+	set_target_properties( ${Name} PROPERTIES
+	VERSION 1
+	DEBUG_POSTFIX "_d"
+	)
+endif ()
+
+if (WIN32)
+
+#set_target_properties( ${Name} PROPERTIES
+#PREFIX      "lib"
+#)
+
+endif (WIN32)
+
+ENDFUNCTION(ADD_STATIC)
+
+
+FUNCTION( ADD_EXE Name INCS SRCS )
+source_group_by_dir(INCS "Header Files")
+source_group_by_dir(SRCS "Source Files")
+
+if (APPLE)
+	add_executable( ${Name} MACOSX_BUNDLE ${INCS};${SRCS} )
+else (APPLE)
+	add_executable( ${Name} ${INCS};${SRCS} )
+endif (APPLE)
+
+if (NOT WINDOWS_PHONE)
+	set_target_properties( ${Name} PROPERTIES
+	VERSION 1
+	DEBUG_POSTFIX "_d"
+	)
+endif ()
+
+ENDFUNCTION(ADD_EXE)

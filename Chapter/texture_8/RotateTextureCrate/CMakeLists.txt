@@ -1,0 +1,28 @@
+AUX_SOURCE_DIRECTORY(. SRC)
+
+FILE(GLOB_RECURSE INC "*.h")
+FILE(GLOB_RECURSE INC_TEMP "*.inl")
+LIST(APPEND INC ${INC_TEMP})
+	
+LINK_DIRECTORIES(
+../../../../3rd/lib
+)
+INCLUDE_DIRECTORIES(
+../../../Common;
+../../../3rd/include/fx11;
+../../../3rd/include/directXTK;
+)
+
+ADD_EXE( RotateTextureCrate "${INC}" "${SRC}" )
+SET_TARGET_PROPERTIES(RotateTextureCrate PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+SET_TARGET_PROPERTIES(RotateTextureCrate PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+SET_PROPERTY(TARGET RotateTextureCrate PROPERTY FOLDER "Chapter/Texture")
+
+ADD_DEPENDENCIES( RotateTextureCrate Common )
+TARGET_LINK_LIBRARIES( RotateTextureCrate Common )
+FOREACH(item ${LINK_LIB_DEBUG})
+	TARGET_LINK_LIBRARIES(RotateTextureCrate debug ${item})
+ENDFOREACH(item)
+FOREACH(item ${LINK_LIB_RELEASE})
+	TARGET_LINK_LIBRARIES(RotateTextureCrate optimized ${item})
+ENDFOREACH(item)

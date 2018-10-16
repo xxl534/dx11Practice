@@ -1,0 +1,13 @@
+AUX_SOURCE_DIRECTORY(. SRC)
+
+FILE(GLOB_RECURSE INC "*.h")
+FILE(GLOB_RECURSE INC_TEMP "*.inl")
+LIST(APPEND INC ${INC_TEMP})
+
+INCLUDE_DIRECTORIES(
+./;
+../3rd/include/fx11;
+../3rd/include/directXTK;
+)
+
+ADD_STATIC( Common "${INC}" "${SRC}" )
