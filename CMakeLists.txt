@@ -34,3 +34,4 @@ ADD_SUBDIRECTORY(Chapter/texture_8/FrameAnimCrate)
 ADD_SUBDIRECTORY(Chapter/blending_9/blending)
 
 ADD_SUBDIRECTORY(Chapter/stencil_10/mirror)
+ADD_SUBDIRECTORY(Chapter/stencil_10/cylinder)
