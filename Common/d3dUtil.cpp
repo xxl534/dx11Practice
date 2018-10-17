@@ -112,7 +112,13 @@ DXErrorMessage(HRESULT hr)
 {
 	static WCHAR buffer[256];
 	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, hr, 0, buffer, 256, NULL);
-	wprintf(buffer);
+	//wprintf(buffer);
+#if defined(DEBUG) | defined(_DEBUG)
+	assert(false);
+#else
+	MessageBox(0, buffer, NULL, 0);
+#endif
+	
 }
 
 template<int col> inline  
