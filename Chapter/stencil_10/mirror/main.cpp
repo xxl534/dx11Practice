@@ -236,7 +236,7 @@ void MirrorApp::UpdateScene(float dt)
 	mSkullTranslation.y = MathHelper::Max(mSkullTranslation.y, 0.f);
 
 	XMMATRIX skullRotate = XMMatrixRotationY(0.2f*MathHelper::Pi);
-	XMMATRIX skullScale = XMMatrixScaling(0.25f, 0.45f, 0.45f);
+	XMMATRIX skullScale = XMMatrixScaling(0.45f, 0.45f, 0.45f);
 	XMMATRIX skullOffset = XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z);
 
 	//XMStoreFloat4x4(&mSkullWorld, skullRotate * skullScale * skullOffset);
@@ -349,7 +349,7 @@ void MirrorApp::DrawScene()
 		Effects::BasicFX->SetTexTransform(XMMatrixIdentity());
 
 		md3dImmediateContext->OMSetBlendState(RenderStates::NoRenderTargetWritesBS, blendFactor, 0xffffffff);
-		md3dImmediateContext->OMSetDepthStencilState(RenderStates::MarkMirrorDSS, 1);
+		md3dImmediateContext->OMSetDepthStencilState(RenderStates::MarkMirrorDSS, 2);
 
 		pass->Apply(0, md3dImmediateContext);
 		md3dImmediateContext->Draw(6, 24);
@@ -358,6 +358,7 @@ void MirrorApp::DrawScene()
 		md3dImmediateContext->OMSetBlendState(NULL, blendFactor, 0xffffffff);
 	}
 
+	//skull in mirror
 	activeSkullTech->GetDesc(&techDesc);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
@@ -390,7 +391,7 @@ void MirrorApp::DrawScene()
 		Effects::BasicFX->SetDirLights(mDirLights);
 
 		md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
-		md3dImmediateContext->OMSetDepthStencilState(RenderStates::DrawReflectionDSS,1);
+		md3dImmediateContext->OMSetDepthStencilState(RenderStates::DrawReflectionDSS,2);
 		pass->Apply(0, md3dImmediateContext);
 		md3dImmediateContext->DrawIndexed(mSkullIndexCount, 0, 0);
 
@@ -404,13 +405,16 @@ void MirrorApp::DrawScene()
 		Effects::BasicFX->SetDirLights(mDirLights);
 	}
 
+	//floor in mirror
 	activeTech->GetDesc(&techDesc);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
 		ID3DX11EffectPass* pass = activeTech->GetPassByIndex(p);
 		md3dImmediateContext->IASetVertexBuffers(0, 1, &mRoomVB, &stride, &offset);
 
-		XMMATRIX world = XMLoadFloat4x4(&mRoomWorld);
+		XMVECTOR mirrorPlane = XMVectorSet(0.f, 0.f, 1.f, 0.f);
+		XMMATRIX matRefl = XMMatrixReflect(mirrorPlane);
+		XMMATRIX world = XMLoadFloat4x4(&mRoomWorld) * matRefl;
 		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
 		XMMATRIX worldViewProj = world*view*proj;
 
@@ -418,16 +422,19 @@ void MirrorApp::DrawScene()
 		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 		Effects::BasicFX->SetWorldViewProj(worldViewProj);
 		Effects::BasicFX->SetTexTransform(XMMatrixIdentity());
-		Effects::BasicFX->SetMaterial(mMirrorMat);
-		Effects::BasicFX->SetDiffuseMap(mMirrorDiffuseMapSRV);
+		Effects::BasicFX->SetMaterial(mRoomMat);
 
-		// Mirror
-		md3dImmediateContext->OMSetBlendState(RenderStates::TransparentBS, blendFactor, 0xffffffff);
+		Effects::BasicFX->SetDiffuseMap(mFloorDiffuseMapSRV);
+		md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
+		md3dImmediateContext->OMSetDepthStencilState(RenderStates::DrawReflectionDSS, 2);
 		pass->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->Draw(6, 24);
-		md3dImmediateContext->OMSetBlendState(NULL, blendFactor, 0xffffffff);
+		md3dImmediateContext->Draw(6, 0);
+
+		md3dImmediateContext->RSSetState(NULL);
+		md3dImmediateContext->OMSetDepthStencilState(NULL, 0);
 	}
 
+	//shadow
 	activeSkullTech->GetDesc(&techDesc);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
@@ -458,6 +465,69 @@ void MirrorApp::DrawScene()
 		md3dImmediateContext->OMSetBlendState(NULL, blendFactor, 0xffffffff);
 		md3dImmediateContext->OMSetDepthStencilState(NULL, 0);
 	}
+
+	//shadow in mirror
+	activeSkullTech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		ID3DX11EffectPass* pass = activeSkullTech->GetPassByIndex(p);
+
+		md3dImmediateContext->IASetVertexBuffers(0, 1, &mSkullVB, &stride, &offset);
+		md3dImmediateContext->IASetIndexBuffer(mSkullIB, DXGI_FORMAT_R32_UINT, 0);
+
+		XMVECTOR mirrorPlane = XMVectorSet(0.f, 0.f, 1.f, 0.f);
+		XMMATRIX matRefl = XMMatrixReflect(mirrorPlane);
+		XMVECTOR shadowPlane = XMVectorSet(0.f, 1.f, 0.f, 0.f);
+		XMVECTOR toMainLight = -XMLoadFloat3(&mDirLights[0].Direction);
+		XMMATRIX matShadow = XMMatrixShadow(shadowPlane, toMainLight);
+		XMMATRIX shadowOffsetY = XMMatrixTranslation(0.f, 0.001f, 0.0f);
+
+		XMMATRIX world = XMLoadFloat4x4(&mSkullWorld) * matShadow * shadowOffsetY * matRefl;
+		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+		XMMATRIX worldViewProj = world*view*proj;
+
+		Effects::BasicFX->SetWorld(world);
+		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+		Effects::BasicFX->SetWorldViewProj(worldViewProj);
+		Effects::BasicFX->SetMaterial(mShadowMat);
+
+		md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
+		md3dImmediateContext->OMSetDepthStencilState(RenderStates::NoDoubleBlendDSS, 2);
+		md3dImmediateContext->OMSetBlendState(RenderStates::TransparentBS, blendFactor, 0xffffffff);
+		pass->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->DrawIndexed(mSkullIndexCount, 0, 0);
+
+		md3dImmediateContext->OMSetBlendState(NULL, blendFactor, 0xffffffff);
+		md3dImmediateContext->OMSetDepthStencilState(NULL, 0);
+		md3dImmediateContext->RSSetState(NULL);
+	}
+
+	//mirror
+	activeTech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		ID3DX11EffectPass* pass = activeTech->GetPassByIndex(p);
+		md3dImmediateContext->IASetVertexBuffers(0, 1, &mRoomVB, &stride, &offset);
+
+		XMMATRIX world = XMLoadFloat4x4(&mRoomWorld);
+		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+		XMMATRIX worldViewProj = world*view*proj;
+
+		Effects::BasicFX->SetWorld(world);
+		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+		Effects::BasicFX->SetWorldViewProj(worldViewProj);
+		Effects::BasicFX->SetTexTransform(XMMatrixIdentity());
+		Effects::BasicFX->SetMaterial(mMirrorMat);
+		Effects::BasicFX->SetDiffuseMap(mMirrorDiffuseMapSRV);
+
+		// Mirror
+		md3dImmediateContext->OMSetBlendState(RenderStates::TransparentBS, blendFactor, 0xffffffff);
+		pass->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->Draw(6, 24);
+		md3dImmediateContext->OMSetBlendState(NULL, blendFactor, 0xffffffff);
+	}
+
+	
 	HR(mSwapChain->Present(0, 0));
 }
 
