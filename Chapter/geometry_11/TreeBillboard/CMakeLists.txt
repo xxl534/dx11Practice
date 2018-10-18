@@ -1,0 +1,28 @@
+AUX_SOURCE_DIRECTORY(. SRC)
+
+FILE(GLOB_RECURSE INC "*.h")
+FILE(GLOB_RECURSE INC_TEMP "*.inl")
+LIST(APPEND INC ${INC_TEMP})
+	
+LINK_DIRECTORIES(
+../../../../3rd/lib
+)
+INCLUDE_DIRECTORIES(
+../../../Common;
+../../../3rd/include/fx11;
+../../../3rd/include/directXTK;
+)
+
+ADD_EXE( TreeBillboard "${INC}" "${SRC}" )
+SET_TARGET_PROPERTIES(TreeBillboard PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+SET_TARGET_PROPERTIES(TreeBillboard PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+SET_PROPERTY(TARGET TreeBillboard PROPERTY FOLDER "Chapter/GeometryShader")
+
+ADD_DEPENDENCIES( TreeBillboard Common )
+TARGET_LINK_LIBRARIES( TreeBillboard Common )
+FOREACH(item ${LINK_LIB_DEBUG})
+	TARGET_LINK_LIBRARIES(TreeBillboard debug ${item})
+ENDFOREACH(item)
+FOREACH(item ${LINK_LIB_RELEASE})
+	TARGET_LINK_LIBRARIES(TreeBillboard optimized ${item})
+ENDFOREACH(item)

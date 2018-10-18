@@ -35,3 +35,5 @@ ADD_SUBDIRECTORY(Chapter/blending_9/blending)
 
 ADD_SUBDIRECTORY(Chapter/stencil_10/mirror)
 ADD_SUBDIRECTORY(Chapter/stencil_10/cylinder)
+
+ADD_SUBDIRECTORY(Chapter/geometry_11/treeBillboard)

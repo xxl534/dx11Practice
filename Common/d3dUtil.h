@@ -67,7 +67,7 @@ public:
 	///<summary>
 	/// 
 	/// Does not work with compressed formats.
-
+	static ID3D11ShaderResourceView* CreateDDSTexture2DArraySRV(ID3D11Device* device, ID3D11DeviceContext* context, std::vector<std::wstring>& filenames);
 	static ID3D11ShaderResourceView* CreateRandomTexture1DSRV(ID3D11Device* device);
 };
 
