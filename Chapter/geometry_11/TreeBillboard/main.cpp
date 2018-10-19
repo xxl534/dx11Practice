@@ -14,6 +14,7 @@ enum RenderOptions
 };
 
 #define  TREE_COUNT 20
+#define	 CYLINDER_RING_VERTEX_COUNT 24	
 
 class BlendApp :public D3DApp
 {
@@ -37,7 +38,9 @@ private:
 	void BuildWaveGeometryBuffers();
 	void BuildCrateGeometryBuffers();
 	void BuildTreeSpriteBuffer();
+	void BuildCylinderRingBuffer();
 	void DrawTreeSprites(CXMMATRIX viewProj);
+	void DrawCylinder(CXMMATRIX viewProj);
 private:
 	ID3D11Buffer* mLandVB;
 	ID3D11Buffer* mLandIB;
@@ -49,6 +52,8 @@ private:
 	ID3D11Buffer* mBoxIB;
 
 	ID3D11Buffer* mTreeSpriteVB;
+
+	ID3D11Buffer* mCylinderRingVB;
 
 	ID3D11ShaderResourceView* mGrassMapSRV;
 	ID3D11ShaderResourceView* mWavesMapSRV;
@@ -68,6 +73,7 @@ private:
 	XMFLOAT4X4 mLandWorld;
 	XMFLOAT4X4 mWavesWorld;
 	XMFLOAT4X4 mBoxWorld;
+	XMFLOAT4X4 mCylinderWorld;
 
 	XMFLOAT4X4 mView;
 	XMFLOAT4X4 mProj;
@@ -113,6 +119,8 @@ BlendApp::BlendApp(HINSTANCE hInstance)
 	, mWavesIB(NULL)
 	, mBoxVB(NULL)
 	, mBoxIB(NULL)
+	, mTreeSpriteVB(NULL)
+	, mCylinderRingVB(NULL)
 	, mGrassMapSRV(NULL)
 	, mWavesMapSRV(NULL)
 	, mBoxMapSRV(NULL)
@@ -138,11 +146,15 @@ BlendApp::BlendApp(HINSTANCE hInstance)
 	XMStoreFloat4x4(&mProj, I);
 
 	XMMATRIX boxScale = XMMatrixScaling(25.f, 25.f, 25.f);
-	XMMATRIX boxOffset = XMMatrixTranslation(0.f, 0.f, 0.f);
+	XMMATRIX boxOffset = XMMatrixTranslation(-15.f, 7.f, -10.f);
 	XMStoreFloat4x4(&mBoxWorld, boxScale*boxOffset);
 
 	XMMATRIX grassTexScale = XMMatrixScaling(5.0f, 5.0f, 0.0f);
 	XMStoreFloat4x4(&mGrassTexTransform, grassTexScale);
+
+	XMMATRIX cylinderScale = XMMatrixScaling(15.f, 15.f, 25.f);
+	XMMATRIX cylinderOffset = XMMatrixTranslation(10.f, 5.f, 15.f);
+	XMStoreFloat4x4(&mCylinderWorld, cylinderScale*cylinderOffset);
 
 	mDirLights[0].Ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights[0].Diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
@@ -186,6 +198,7 @@ BlendApp::~BlendApp()
 	ReleaseCOM(mBoxVB);
 	ReleaseCOM(mBoxIB);
 	ReleaseCOM(mTreeSpriteVB);
+	ReleaseCOM(mCylinderRingVB);
 	ReleaseCOM(mGrassMapSRV);
 	ReleaseCOM(mWavesMapSRV);
 	ReleaseCOM(mBoxMapSRV);
@@ -231,6 +244,7 @@ bool BlendApp::Init()
 	BuildWaveGeometryBuffers();
 	BuildCrateGeometryBuffers();
 	BuildTreeSpriteBuffer();
+	BuildCylinderRingBuffer();
 
 	return true;
 }
@@ -340,6 +354,12 @@ void BlendApp::DrawScene()
 	Effects::TreeSpriteFX->SetFogStart(fogStart);
 	Effects::TreeSpriteFX->SetFogRange(fogRange);
 
+	Effects::CylinderFX->SetDirLights(mDirLights);
+	Effects::CylinderFX->SetEyePosW(mEyePosW);
+	Effects::CylinderFX->SetFogColor(FogColor);
+	Effects::CylinderFX->SetFogStart(fogStart);
+	Effects::CylinderFX->SetFogRange(fogRange);
+
 	ID3DX11EffectTechnique* boxTech;
 	ID3DX11EffectTechnique* landAndWaveTech;
 	ID3DX11EffectTechnique* cylinderTech = Effects::BasicFX->Light0TexAlphaClipTech;
@@ -389,7 +409,6 @@ void BlendApp::DrawScene()
 
 		md3dImmediateContext->RSSetState(NULL);
 	}
-
 	
 	//draw land 
 	landAndWaveTech->GetDesc(&techDesc);
@@ -415,6 +434,8 @@ void BlendApp::DrawScene()
 
 	//draw tree
 	DrawTreeSprites(viewProj);
+
+	DrawCylinder(viewProj);
 
 	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
 	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -661,6 +682,34 @@ void BlendApp::BuildTreeSpriteBuffer()
 	HR(md3dDevice->CreateBuffer(&vbd, &vInitData, &mTreeSpriteVB));
 }
 
+void BlendApp::BuildCylinderRingBuffer()
+{
+	Vertex::Basic32 v[CYLINDER_RING_VERTEX_COUNT];
+	UINT sliceCount = CYLINDER_RING_VERTEX_COUNT - 1;
+	float fSliceRadian = MathHelper::Pi * 2 / sliceCount;
+	float fDeltaU = 1.f / sliceCount;
+
+	for (UINT i = 0; i < CYLINDER_RING_VERTEX_COUNT; ++i)
+	{
+		float x = cosf(i * fSliceRadian);
+		float z = sinf(i * fSliceRadian);
+
+		v[i].Pos = XMFLOAT3(x, 0.f, z);
+		v[i].Normal = XMFLOAT3(x, 0.f, z);
+		v[i].Tex = XMFLOAT2(fDeltaU * i, 0.f);
+	}
+
+	D3D11_BUFFER_DESC vbd;
+	vbd.Usage = D3D11_USAGE_IMMUTABLE;
+	vbd.ByteWidth = sizeof(Vertex::Basic32) * CYLINDER_RING_VERTEX_COUNT;
+	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vbd.CPUAccessFlags = 0;
+	vbd.MiscFlags = 0;
+	D3D11_SUBRESOURCE_DATA vInitData;
+	vInitData.pSysMem = v;
+	HR(md3dDevice->CreateBuffer(&vbd, &vInitData, &mCylinderRingVB));
+}
+
 void BlendApp::DrawTreeSprites(CXMMATRIX viewProj)
 {
 	Effects::TreeSpriteFX->SetViewProj(viewProj);
@@ -705,4 +754,52 @@ void BlendApp::DrawTreeSprites(CXMMATRIX viewProj)
 		md3dImmediateContext->Draw(TREE_COUNT, 0);
 		md3dImmediateContext->OMSetBlendState(NULL, blendFactor, 0xffffffff);
 	}
+}
+
+void BlendApp::DrawCylinder(CXMMATRIX viewProj)
+{
+	XMMATRIX world = XMLoadFloat4x4(&mCylinderWorld);
+	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+	XMMATRIX worldViewProj = world*viewProj;
+
+	Effects::CylinderFX->SetWorld(world);
+	Effects::CylinderFX->SetWorldInvTranspose(worldInvTranspose);
+	Effects::CylinderFX->SetWorldViewProj(worldViewProj);
+	Effects::CylinderFX->SetMaterial(mBoxMat);
+	Effects::CylinderFX->SetDiffuseMap(mBoxMapSRV);
+	Effects::CylinderFX->SetTexTransform(XMMatrixIdentity());
+	Effects::CylinderFX->SetHeight(1.5f);
+
+	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
+	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
+	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+	ID3DX11EffectTechnique* tech;
+	switch (mRenderOptions)
+	{
+	case Lighting:
+		tech = Effects::CylinderFX->Light3Tech;
+		break;
+	case Textures:
+		tech = Effects::CylinderFX->Light3TexAlphaClipTech;
+		break;
+	case TexturesAndFog:
+		tech = Effects::CylinderFX->Light3TexAlphaClipFogTech;
+		break;
+	}
+
+	D3DX11_TECHNIQUE_DESC techDesc;
+	tech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		ID3DX11EffectPass* pass = tech->GetPassByIndex(p);
+
+		md3dImmediateContext->IASetVertexBuffers(0, 1, &mCylinderRingVB, &stride, &offset);
+		md3dImmediateContext->RSSetState(RenderStates::NoCullRS);
+		pass->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->Draw(CYLINDER_RING_VERTEX_COUNT, 0);
+		md3dImmediateContext->RSSetState(NULL);
+	}
+
 }
