@@ -16,17 +16,9 @@ cbuffer cbPerObject
 	float4x4 gWorldInvTranspose;
 	float4x4 gWorldViewProj;
 	float4x4 gTexTransform;
-	float 	 gHeight;
 	Material gMaterial;
 };
 
-cbuffer cbFixed
-{
-	float gTexV[4] = 
-	{
-		1.f, 1.f, 0.f, 0.f
-	};
-};
 Texture2D gDiffuseMap;
 
 SamplerState samAnisotropic
@@ -69,10 +61,32 @@ VertexOut VS( VertexIn vin )
 	return vout;
 }
 
-[maxvertexcount(4)]
-void GS(line VertexOut gin[2],
+[maxvertexcount(15)]
+void GS(triangle VertexOut gin[3],
 		inout TriangleStream<GeoOut> triStream )
 {
+	float4 vCenterW = mul( float4( (gin[0].PosL + gin[1].PosL + gin[2].PosL) / 3.f, 1.f), gWorld );
+	float4 vDist = gEyePosW - vCenterW;
+	float distSqr = dot( vDist, vDist );
+	int exp = step( distSqr, 225 );
+	exp += step( distSqr, 900 );
+	int slice = pow(2,exp);
+	float factor = 1.f/slice;
+		
+	GeoOut gout;	
+	if( exp == 0 )
+	{	
+		triStream.Append(gin[0],gin[1],gin[2]);
+	}
+	else if( exp == 1 )
+	{
+		float4
+	}
+	for( int w = 1; w <= slice; ++w )
+	{
+		
+	}
+	
 	float4 pos_local[4]; 
 	pos_local[0] = float4( gin[0].PosL + float3( 0.f, gHeight, 0.f ), 1.f );
 	pos_local[1] = float4( gin[1].PosL + float3( 0.f, gHeight, 0.f ), 1.f );

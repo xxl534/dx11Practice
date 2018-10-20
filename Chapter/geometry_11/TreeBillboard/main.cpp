@@ -14,7 +14,9 @@ enum RenderOptions
 };
 
 #define  TREE_COUNT 20
-#define	 CYLINDER_RING_VERTEX_COUNT 24	
+#define	 CYLINDER_RING_VERTEX_COUNT 24
+#define  ICOSAHEDRON_VERTEX_COUNT 12
+#define  ICOSAHEDRON_FACE_COUNT 20
 
 class BlendApp :public D3DApp
 {
@@ -39,8 +41,10 @@ private:
 	void BuildCrateGeometryBuffers();
 	void BuildTreeSpriteBuffer();
 	void BuildCylinderRingBuffer();
+	void BuildSphereBuffer();
 	void DrawTreeSprites(CXMMATRIX viewProj);
 	void DrawCylinder(CXMMATRIX viewProj);
+	void DrawSphere(CXMMATRIX viewProj);
 private:
 	ID3D11Buffer* mLandVB;
 	ID3D11Buffer* mLandIB;
@@ -55,10 +59,14 @@ private:
 
 	ID3D11Buffer* mCylinderRingVB;
 
+	ID3D11Buffer* mSphereVB;
+	ID3D11Buffer* mSphereIB;
+
 	ID3D11ShaderResourceView* mGrassMapSRV;
 	ID3D11ShaderResourceView* mWavesMapSRV;
 	ID3D11ShaderResourceView* mBoxMapSRV;
 	ID3D11ShaderResourceView* mTreeTextureMapArraySRV;
+	ID3D11ShaderResourceView* mSphereMapSRV;
 
 	Waves mWaves;
 
@@ -74,6 +82,7 @@ private:
 	XMFLOAT4X4 mWavesWorld;
 	XMFLOAT4X4 mBoxWorld;
 	XMFLOAT4X4 mCylinderWorld;
+	XMFLOAT4X4 mSphereWorld;
 
 	XMFLOAT4X4 mView;
 	XMFLOAT4X4 mProj;
@@ -121,9 +130,13 @@ BlendApp::BlendApp(HINSTANCE hInstance)
 	, mBoxIB(NULL)
 	, mTreeSpriteVB(NULL)
 	, mCylinderRingVB(NULL)
+	, mSphereVB(NULL)
+	, mSphereIB(NULL)
 	, mGrassMapSRV(NULL)
 	, mWavesMapSRV(NULL)
 	, mBoxMapSRV(NULL)
+	, mTreeTextureMapArraySRV(NULL)
+	, mSphereMapSRV(NULL)
 	, mWaterTexOffset(0.f, 0.f)
 	, mEyePosW(0.f, 0.f, 0.f)
 	, mLandIndexCount(0)
@@ -155,6 +168,10 @@ BlendApp::BlendApp(HINSTANCE hInstance)
 	XMMATRIX cylinderScale = XMMatrixScaling(15.f, 15.f, 25.f);
 	XMMATRIX cylinderOffset = XMMatrixTranslation(10.f, 5.f, 15.f);
 	XMStoreFloat4x4(&mCylinderWorld, cylinderScale*cylinderOffset);
+
+	XMMATRIX sphereScale = XMMatrixScaling(10.f, 15.f, 20.f);
+	XMMATRIX sphereOffset = XMMatrixTranslation(10.f, 22.f, -20.f);
+	XMStoreFloat4x4(&mSphereWorld, sphereScale*sphereOffset);
 
 	mDirLights[0].Ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights[0].Diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
@@ -199,10 +216,13 @@ BlendApp::~BlendApp()
 	ReleaseCOM(mBoxIB);
 	ReleaseCOM(mTreeSpriteVB);
 	ReleaseCOM(mCylinderRingVB);
+	ReleaseCOM(mSphereVB);
+	ReleaseCOM(mSphereIB);
 	ReleaseCOM(mGrassMapSRV);
 	ReleaseCOM(mWavesMapSRV);
 	ReleaseCOM(mBoxMapSRV);
 	ReleaseCOM(mTreeTextureMapArraySRV);
+	ReleaseCOM(mSphereMapSRV);
 
 	Effects::DestroyAll();
 	InputLayouts::DestroyAll();
@@ -231,6 +251,9 @@ bool BlendApp::Init()
 	HR(CreateDDSTextureFromFile(md3dDevice,
 		L"Textures/WireFence.dds", NULL, &mBoxMapSRV));
 
+	HR(CreateDDSTextureFromFile(md3dDevice,
+		L"Textures/water1.dds", NULL, &mSphereMapSRV));
+
 	wchar_t szBuffer[512];
 	std::vector<std::wstring> arrayTreePath;
 	for (UINT i = 0; i < 4; ++i)
@@ -245,6 +268,7 @@ bool BlendApp::Init()
 	BuildCrateGeometryBuffers();
 	BuildTreeSpriteBuffer();
 	BuildCylinderRingBuffer();
+	BuildSphereBuffer();
 
 	return true;
 }
@@ -710,6 +734,99 @@ void BlendApp::BuildCylinderRingBuffer()
 	HR(md3dDevice->CreateBuffer(&vbd, &vInitData, &mCylinderRingVB));
 }
 
+void BlendApp::BuildSphereBuffer()
+{
+	//https://en.wikipedia.org/wiki/Regular_icosahedron
+	float phi = (1 + sqrtf(5.f))*0.5f;
+	float len = sqrtf(phi * phi + 1);
+	float a = 1.f / len;
+	float b = phi / len;
+	float edge = 2.f / len;
+	float edgeSqr = edge*edge;
+	DirectX::XMVECTOR v[ICOSAHEDRON_VERTEX_COUNT];
+	
+	v[0] = DirectX::XMVectorSet(0.f, a, b, 0.f);
+	v[1] = DirectX::XMVectorSet(0.f, -a, b, 0.f);
+	v[2] = DirectX::XMVectorSet(0.f, a, -b, 0.f);
+	v[3] = DirectX::XMVectorSet(0.f, -a, -b, 0.f);
+
+	v[4] = DirectX::XMVectorSet(a, b, 0.f, 0.f);
+	v[5] = DirectX::XMVectorSet(-a, b, 0.f, 0.f);
+	v[6] = DirectX::XMVectorSet(a, -b, 0.f, 0.f);
+	v[7] = DirectX::XMVectorSet(-a, -b, 0.f, 0.f);
+
+	v[8] = DirectX::XMVectorSet(b, 0.f, a, 0.f);
+	v[9] = DirectX::XMVectorSet(b, 0.f, -a, 0.f);
+	v[10] = DirectX::XMVectorSet(-b, 0.f, a, 0.f);
+	v[11] = DirectX::XMVectorSet(-b, 0.f, -a, 0.f);
+	
+	std::vector<UINT> indices;
+	//8 triangle faces whose vertices come from 3 different golden rectangles. 
+	indices.push_back(0); indices.push_back(4); indices.push_back(8);	//normal parallel to (1,1,1)
+	indices.push_back(0); indices.push_back(5); indices.push_back(10);	//normal parallel to (-1,1,1)
+	indices.push_back(1); indices.push_back(6); indices.push_back(8);	//normal parallel to ( 1, -1, 1 )
+	indices.push_back(1); indices.push_back(7); indices.push_back(10);	//normal parallel to ( -1, -1, 1 )
+	indices.push_back(2); indices.push_back(4); indices.push_back(9);	//normal parallel to ( 1, 1, -1 )
+	indices.push_back(2); indices.push_back(5); indices.push_back(11);	//normal parallel to ( -1, 1, -1 )
+	indices.push_back(3); indices.push_back(6); indices.push_back(9);	//normal parallel to ( 1, -1, -1 )
+	indices.push_back(3); indices.push_back(7); indices.push_back(11);	//normal parallel to ( -1, -1, -1 )
+	//12 triangle faces whose vertices come from 2 different golden rectangles.
+	indices.push_back(0); indices.push_back(1); indices.push_back(8);
+	indices.push_back(0); indices.push_back(1); indices.push_back(10);
+	indices.push_back(2); indices.push_back(3); indices.push_back(9);
+	indices.push_back(2); indices.push_back(3); indices.push_back(11);
+	indices.push_back(4); indices.push_back(5); indices.push_back(0);
+	indices.push_back(4); indices.push_back(5); indices.push_back(2);
+	indices.push_back(6); indices.push_back(7); indices.push_back(1);
+	indices.push_back(6); indices.push_back(7); indices.push_back(3);
+	indices.push_back(8); indices.push_back(9); indices.push_back(4);
+	indices.push_back(8); indices.push_back(9); indices.push_back(6);
+	indices.push_back(10); indices.push_back(11); indices.push_back(5);
+	indices.push_back(10); indices.push_back(11); indices.push_back(7);
+	for (UINT i = 0; i < ICOSAHEDRON_FACE_COUNT; ++i)
+	{
+		UINT i0 = i;
+		UINT i1 = i * 3 + 1;
+		UINT i2 = i * 3 + 2;
+		XMVECTOR v0 = v[indices[i0]];
+		XMVECTOR v1 = v[indices[i1]];
+		XMVECTOR v2 = v[indices[i2]];
+		XMVECTOR vNormal = XMVector3Cross(v1 - v0, v2 - v1);
+		if (XMVectorGetX(XMVector3Dot(vNormal, v0)) < 0.f)
+		{
+			MathHelper::Swap(indices[i1], indices[i2]);
+		}
+	}
+
+	Vertex::Basic32 vert[ICOSAHEDRON_VERTEX_COUNT];
+	for (UINT i = 0; i < ICOSAHEDRON_VERTEX_COUNT; ++i)
+	{
+		XMStoreFloat3(&vert[i].Pos, v[i]);
+		vert[i].Normal = vert[i].Pos;
+		vert[i].Tex = XMFLOAT2(0.f, 0.f);
+	}
+
+	D3D11_BUFFER_DESC vbd;
+	vbd.Usage = D3D11_USAGE_IMMUTABLE;
+	vbd.ByteWidth = sizeof(Vertex::Basic32) * ICOSAHEDRON_VERTEX_COUNT;
+	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vbd.CPUAccessFlags = 0;
+	vbd.MiscFlags = 0;
+	D3D11_SUBRESOURCE_DATA vInitData;
+	vInitData.pSysMem = vert;
+	HR(md3dDevice->CreateBuffer(&vbd, &vInitData, &mSphereVB));
+
+	D3D11_BUFFER_DESC ibd;
+	ibd.Usage = D3D11_USAGE_IMMUTABLE;
+	ibd.ByteWidth = sizeof(UINT) * indices.size();
+	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibd.CPUAccessFlags = 0;
+	ibd.MiscFlags = 0;
+	D3D11_SUBRESOURCE_DATA iInitData;
+	iInitData.pSysMem = &indices[0];
+	HR(md3dDevice->CreateBuffer(&ibd,&iInitData,&mSphereIB))
+}
+
 void BlendApp::DrawTreeSprites(CXMMATRIX viewProj)
 {
 	Effects::TreeSpriteFX->SetViewProj(viewProj);
@@ -801,5 +918,10 @@ void BlendApp::DrawCylinder(CXMMATRIX viewProj)
 		md3dImmediateContext->Draw(CYLINDER_RING_VERTEX_COUNT, 0);
 		md3dImmediateContext->RSSetState(NULL);
 	}
+
+}
+
+void BlendApp::DrawSphere(CXMMATRIX viewProj)
+{
 
 }

@@ -50,6 +50,18 @@ public:
 		return x < low ? low : (x > high ? high : x); 
 	}
 
+	template<typename T>
+	static inline void Swap(T& a, T& b)
+	{
+		T temp = a;
+		a = b;
+		b = temp;
+	}
+
+	static inline bool NearZero(float f)
+	{
+		return  f > -0.0001f && f < 0.0001f;
+	}
 	// Returns the polar angle of the point (x,y) in [0, 2*PI).
 	static float AngleFromXY(float x, float y);
 
@@ -70,7 +82,6 @@ public:
 
 	static const float Infinity;
 	static const float Pi;
-
 
 };
 
