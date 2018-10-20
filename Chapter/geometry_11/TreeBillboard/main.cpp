@@ -94,6 +94,7 @@ private:
 	RenderOptions mRenderOptions;
 
 	XMFLOAT3 mEyePosW;
+	XMFLOAT3 mSpherePosW;
 
 	float mTheta;
 	float mPhi;
@@ -169,8 +170,9 @@ BlendApp::BlendApp(HINSTANCE hInstance)
 	XMMATRIX cylinderOffset = XMMatrixTranslation(10.f, 5.f, 15.f);
 	XMStoreFloat4x4(&mCylinderWorld, cylinderScale*cylinderOffset);
 
-	XMMATRIX sphereScale = XMMatrixScaling(10.f, 15.f, 20.f);
-	XMMATRIX sphereOffset = XMMatrixTranslation(10.f, 22.f, -20.f);
+	XMMATRIX sphereScale = XMMatrixScaling(10.f, 10.f, 10.f);
+	mSpherePosW = XMFLOAT3(10.f, 22.f, -20.f);
+	XMMATRIX sphereOffset = XMMatrixTranslation( mSpherePosW.x, mSpherePosW.y, mSpherePosW.z );
 	XMStoreFloat4x4(&mSphereWorld, sphereScale*sphereOffset);
 
 	mDirLights[0].Ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -384,6 +386,12 @@ void BlendApp::DrawScene()
 	Effects::CylinderFX->SetFogStart(fogStart);
 	Effects::CylinderFX->SetFogRange(fogRange);
 
+	Effects::SphereFX->SetDirLights(mDirLights);
+	Effects::SphereFX->SetEyePosW(mEyePosW);
+	Effects::SphereFX->SetFogColor(FogColor);
+	Effects::SphereFX->SetFogStart(fogStart);
+	Effects::SphereFX->SetFogRange(fogRange);
+
 	ID3DX11EffectTechnique* boxTech;
 	ID3DX11EffectTechnique* landAndWaveTech;
 	ID3DX11EffectTechnique* cylinderTech = Effects::BasicFX->Light0TexAlphaClipTech;
@@ -460,6 +468,8 @@ void BlendApp::DrawScene()
 	DrawTreeSprites(viewProj);
 
 	DrawCylinder(viewProj);
+
+	DrawSphere(viewProj);
 
 	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
 	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -785,7 +795,7 @@ void BlendApp::BuildSphereBuffer()
 	indices.push_back(10); indices.push_back(11); indices.push_back(7);
 	for (UINT i = 0; i < ICOSAHEDRON_FACE_COUNT; ++i)
 	{
-		UINT i0 = i;
+		UINT i0 = i * 3;
 		UINT i1 = i * 3 + 1;
 		UINT i2 = i * 3 + 2;
 		XMVECTOR v0 = v[indices[i0]];
@@ -798,17 +808,16 @@ void BlendApp::BuildSphereBuffer()
 		}
 	}
 
-	Vertex::Basic32 vert[ICOSAHEDRON_VERTEX_COUNT];
+	Vertex::Sphere vert[ICOSAHEDRON_VERTEX_COUNT];
 	for (UINT i = 0; i < ICOSAHEDRON_VERTEX_COUNT; ++i)
 	{
 		XMStoreFloat3(&vert[i].Pos, v[i]);
-		vert[i].Normal = vert[i].Pos;
 		vert[i].Tex = XMFLOAT2(0.f, 0.f);
 	}
 
 	D3D11_BUFFER_DESC vbd;
 	vbd.Usage = D3D11_USAGE_IMMUTABLE;
-	vbd.ByteWidth = sizeof(Vertex::Basic32) * ICOSAHEDRON_VERTEX_COUNT;
+	vbd.ByteWidth = sizeof(Vertex::Sphere) * ICOSAHEDRON_VERTEX_COUNT;
 	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vbd.CPUAccessFlags = 0;
 	vbd.MiscFlags = 0;
@@ -918,10 +927,62 @@ void BlendApp::DrawCylinder(CXMMATRIX viewProj)
 		md3dImmediateContext->Draw(CYLINDER_RING_VERTEX_COUNT, 0);
 		md3dImmediateContext->RSSetState(NULL);
 	}
-
 }
 
 void BlendApp::DrawSphere(CXMMATRIX viewProj)
 {
+	float fLen = XMVectorGetX(XMVector3Length(XMLoadFloat3(&mSpherePosW) - XMLoadFloat3(&mEyePosW)));
+	int iteration = 0;
+	if (fLen < 100)
+	{
+		++iteration;
+	}
+	if (fLen < 50)
+	{
+		++iteration;
+	}
+	XMMATRIX world = XMLoadFloat4x4(&mSphereWorld);
+	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+	XMMATRIX worldViewProj = world * viewProj;
 
+	Effects::SphereFX->SetWorld(world);
+	Effects::SphereFX->SetWorldInvTranspose(worldInvTranspose);
+	Effects::SphereFX->SetWorldViewProj(worldViewProj);
+	Effects::SphereFX->SetMaterial(mBoxMat);
+	Effects::SphereFX->SetDiffuseMap(mSphereMapSRV);
+	Effects::SphereFX->SetTexTransform(XMMatrixIdentity());
+	Effects::SphereFX->SetIteration(iteration);
+
+	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	md3dImmediateContext->IASetInputLayout(InputLayouts::Sphere);
+	UINT stride = sizeof(Vertex::Sphere);
+	UINT offset = 0;
+	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+	ID3DX11EffectTechnique* tech;
+	switch (mRenderOptions)
+	{
+	case Lighting:
+		tech = Effects::SphereFX->Light3Tech;
+		break;
+	case Textures:
+		tech = Effects::SphereFX->Light3TexAlphaClipTech;
+		break;
+	case TexturesAndFog:
+		tech = Effects::SphereFX->Light3TexAlphaClipFogTech;
+		break;
+	}
+
+	D3DX11_TECHNIQUE_DESC techDesc;
+	tech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		ID3DX11EffectPass* pass = tech->GetPassByIndex(p);
+		
+		md3dImmediateContext->IASetVertexBuffers(0, 1, &mSphereVB, &stride, &offset);
+		md3dImmediateContext->IASetIndexBuffer(mSphereIB, DXGI_FORMAT_R32_UINT, 0);
+		md3dImmediateContext->RSSetState(RenderStates::NoCullRS);
+		pass->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->DrawIndexed(20 * 3, 0, 0);
+		md3dImmediateContext->RSSetState(NULL);
+	}
 }

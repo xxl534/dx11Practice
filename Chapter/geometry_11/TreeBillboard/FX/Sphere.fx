@@ -17,6 +17,7 @@ cbuffer cbPerObject
 	float4x4 gWorldViewProj;
 	float4x4 gTexTransform;
 	Material gMaterial;
+	int 	 gIteration;
 };
 
 Texture2D gDiffuseMap;
@@ -33,14 +34,12 @@ SamplerState samAnisotropic
 struct VertexIn
 {
 	float3 PosL 	: POSITION;
-	float3 NormalL 	: NORMAL;
 	float2 Tex 		: TEXCOORD;
 };
 
 struct VertexOut
 {
 	float3 PosL 	: POSITION;
-	float3 NormalL 	: NORMAL;
 	float2 Tex 		: TEXCOORD;
 };
 
@@ -56,65 +55,112 @@ VertexOut VS( VertexIn vin )
 {
 	VertexOut vout;
 	vout.PosL = vin.PosL;
-	vout.NormalL = vin.NormalL;
-	vout.Tex = vin.Tex;
+	vout.Tex = mul(float4(vin.Tex,0.f,1.f), gTexTransform ).xy;
 	return vout;
 }
 
-[maxvertexcount(15)]
+void Subdivide(VertexOut vin0, VertexOut vin1, VertexOut vin2, out VertexOut outVert[6])
+{
+	VertexOut m[3];
+	
+	m[0].PosL =  normalize( 0.5f * (vin0.PosL + vin1.PosL) );
+	m[1].PosL =  normalize( 0.5f * (vin1.PosL + vin2.PosL) );
+	m[2].PosL =  normalize( 0.5f * (vin2.PosL + vin0.PosL) );
+	
+	m[0].Tex = 0.5f * (vin0.Tex + vin1.Tex);
+	m[1].Tex = 0.5f * (vin1.Tex + vin2.Tex);
+	m[2].Tex = 0.5f * (vin2.Tex + vin0.Tex);
+	
+	outVert[0] = vin0;
+	outVert[1] = m[0];
+	outVert[2] = m[2];
+	outVert[3] = m[1];
+	outVert[4] = vin2;
+	outVert[5] = vin1;
+}
+
+void OutputSubdivision(VertexOut v[6], inout TriangleStream<GeoOut> triStream )
+{
+	GeoOut gout[6];
+	[unroll]
+	for( int i = 0; i < 6; ++i )
+	{
+		gout[i].PosW = mul(float4(v[i].PosL, 1.f), gWorld ).xyz;
+		gout[i].PosH = mul(float4(v[i].PosL, 1.f), gWorldViewProj);
+		gout[i].NormalW = mul(v[i].PosL, (float3x3)gWorldInvTranspose ).xyz;
+		gout[i].Tex = v[i].Tex;
+	}
+	
+	
+	triStream.RestartStrip();
+	[unroll]
+	for( int j = 0; j < 5; ++j )
+	{
+		triStream.Append(gout[j]);
+	}
+	
+	triStream.RestartStrip();
+	triStream.Append(gout[1]);
+	triStream.Append(gout[5]);
+	triStream.Append(gout[3]);
+}
+
+GeoOut VS_Test(VertexIn vin)
+{
+	GeoOut vout;
+	vout.PosW = mul(float4(vin.PosL, 1.0f), gWorld).xyz;
+	vout.NormalW = mul(vin.PosL, (float3x3)gWorldInvTranspose);
+	
+	vout.PosH = mul(float4(vin.PosL,1.0f), gWorldViewProj);
+	vout.Tex = mul(float4(vin.Tex, 0.f, 1.f), gTexTransform).xy;
+	
+	return vout;
+}
+
+
+[maxvertexcount(32)]
 void GS(triangle VertexOut gin[3],
 		inout TriangleStream<GeoOut> triStream )
 {
-	float4 vCenterW = mul( float4( (gin[0].PosL + gin[1].PosL + gin[2].PosL) / 3.f, 1.f), gWorld );
-	float4 vDist = gEyePosW - vCenterW;
-	float distSqr = dot( vDist, vDist );
-	int exp = step( distSqr, 225 );
-	exp += step( distSqr, 900 );
-	int slice = pow(2,exp);
-	float factor = 1.f/slice;
+	int iteration = gIteration;
 		
 	GeoOut gout;	
-	if( exp == 0 )
+	if( iteration == 0 )
 	{	
-		triStream.Append(gin[0],gin[1],gin[2]);
+		triStream.RestartStrip();
+		for(int i = 0; i < 3; ++i)
+		{
+			gout.PosW = mul(float4(gin[i].PosL, 1.f), gWorld ).xyz;
+			gout.PosH = mul(float4(gin[i].PosL, 1.f), gWorldViewProj );
+			gout.NormalW = mul(gin[i].PosL, (float3x3)gWorldInvTranspose );
+			gout.Tex = gin[i].Tex;
+			triStream.Append(gout);
+		}
 	}
-	else if( exp == 1 )
+	else
 	{
-		float4
+		VertexOut v[6];
+		Subdivide(gin[0], gin[1], gin[2], v);
+		if( iteration == 1 )
+		{
+			OutputSubdivision( v, triStream );
+		}
+		else
+		{
+			VertexOut v2[6];
+			Subdivide(v[0], v[1], v[2], v2 );
+			OutputSubdivision( v2, triStream );
+			
+			Subdivide(v[1], v[3], v[2], v2 );
+			OutputSubdivision( v2, triStream );
+			
+			Subdivide(v[2], v[3], v[4], v2 );
+			OutputSubdivision( v2, triStream );
+			
+			Subdivide(v[1], v[5], v[3], v2 );
+			OutputSubdivision( v2, triStream );
+		}
 	}
-	for( int w = 1; w <= slice; ++w )
-	{
-		
-	}
-	
-	float4 pos_local[4]; 
-	pos_local[0] = float4( gin[0].PosL + float3( 0.f, gHeight, 0.f ), 1.f );
-	pos_local[1] = float4( gin[1].PosL + float3( 0.f, gHeight, 0.f ), 1.f );
-	pos_local[2] = float4( gin[0].PosL, 1.f );
-	pos_local[3] = float4( gin[1].PosL, 1.f );
-	
-	float tex_u[4];
-	tex_u[0] = gin[0].Tex.x;
-	tex_u[1] = gin[1].Tex.x;
-	tex_u[2] = tex_u[0];
-	tex_u[3] = tex_u[1];
-	
-	float3 normal[4];
-	normal[0] = mul(gin[0].NormalL, (float3x3)gWorldInvTranspose);
-	normal[1] = mul(gin[1].NormalL, (float3x3)gWorldInvTranspose);
-	normal[2] = gin[0].NormalL;
-	normal[3] = gin[1].NormalL;
-	
-	GeoOut gout;
-	[unroll]
-	for( int i = 0; i < 4; ++i )
-	{
-		gout.PosW = mul(pos_local[i], gWorld).xyz;
-		gout.PosH = mul(pos_local[i], gWorldViewProj);
-		gout.NormalW = normal[i];
-		gout.Tex = mul( float4(tex_u[i], gTexV[i],0.f,0.f), gTexTransform ).xy;
-		triStream.Append(gout);
-	}	
 }
 
 
@@ -166,6 +212,16 @@ float4 PS(GeoOut pin, uniform int gLightCount, uniform bool gUseTexture, uniform
 	
 	litColor.a = gMaterial.Diffuse.a * texColor.a;
 	return litColor;
+}
+
+technique11 Test
+{
+    pass P0
+    {
+        SetVertexShader( CompileShader( vs_5_0, VS_Test() ) );
+		SetGeometryShader( NULL );
+        SetPixelShader( CompileShader( ps_5_0, PS(3, false, false, false) ) );
+    }
 }
 
 technique11 Light3

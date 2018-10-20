@@ -136,17 +136,56 @@ CylinderEffect::~CylinderEffect()
 }
 #pragma endregion
 
+#pragma region SphereEffect
+SphereEffect::SphereEffect(ID3D11Device* device, const std::wstring& filename)
+	: Effect(device, filename)
+{
+	TestTech = mFX->GetTechniqueByName("Test");
+
+	Light3Tech = mFX->GetTechniqueByName("Light3");
+
+	Light3TexTech = mFX->GetTechniqueByName("Light3Tex");
+
+	Light3TexAlphaClipTech = mFX->GetTechniqueByName("Light3TexAlphaClip");
+
+	Light3FogTech = mFX->GetTechniqueByName("Light3Fog");
+
+	Light3TexFogTech = mFX->GetTechniqueByName("Light3TexFog");
+
+	Light3TexAlphaClipFogTech = mFX->GetTechniqueByName("Light3TexAlphaClipFog");
+
+	WorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	World = mFX->GetVariableByName("gWorld")->AsMatrix();
+	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
+	TexTransform = mFX->GetVariableByName("gTexTransform")->AsMatrix();
+	EyePosW = mFX->GetVariableByName("gEyePosW")->AsVector();
+	FogColor = mFX->GetVariableByName("gFogColor")->AsVector();
+	FogStart = mFX->GetVariableByName("gFogStart")->AsScalar();
+	FogRange = mFX->GetVariableByName("gFogRange")->AsScalar();
+	Iteration = mFX->GetVariableByName("gIteration")->AsScalar();
+	DirLights = mFX->GetVariableByName("gDirLights");
+	Mat = mFX->GetVariableByName("gMaterial");
+	DiffuseMap = mFX->GetVariableByName("gDiffuseMap")->AsShaderResource();
+}
+
+SphereEffect::~SphereEffect()
+{
+}
+#pragma endregion
+
 #pragma region Effects
 
 BasicEffect* Effects::BasicFX = NULL;
 TreeSpriteEffect* Effects::TreeSpriteFX = NULL;
 CylinderEffect* Effects::CylinderFX = NULL;
+SphereEffect* Effects::SphereFX = NULL;
 
 void Effects::InitAll(ID3D11Device* device)
 {
 	BasicFX = new BasicEffect(device, L"FX/Basic.fx");
 	TreeSpriteFX = new TreeSpriteEffect(device, L"FX/TreeSprite.fx");
 	CylinderFX = new CylinderEffect(device, L"FX/Cylinder.fx");
+	SphereFX = new SphereEffect(device, L"FX/Sphere.fx");
 }
 
 void Effects::DestroyAll()
@@ -154,5 +193,6 @@ void Effects::DestroyAll()
 	SafeDelete(BasicFX);
 	SafeDelete(TreeSpriteFX);
 	SafeDelete(CylinderFX);
+	SafeDelete(SphereFX);
 }
 #pragma endregion

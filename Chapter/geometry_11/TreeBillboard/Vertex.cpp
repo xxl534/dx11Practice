@@ -15,12 +15,19 @@ const D3D11_INPUT_ELEMENT_DESC InputLayoutDesc::TreePointSprite[2] =
 	{ "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 };
 
+const D3D11_INPUT_ELEMENT_DESC InputLayoutDesc::Sphere[2] =
+{
+	{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+};
+
 #pragma endregion
 
 #pragma region InputLayouts
 
 ID3D11InputLayout* InputLayouts::Basic32 = NULL;
 ID3D11InputLayout* InputLayouts::TreePointSprite = NULL;
+ID3D11InputLayout* InputLayouts::Sphere = NULL;
 
 void InputLayouts::InitAll(ID3D11Device* device)
 {
@@ -37,12 +44,17 @@ void InputLayouts::InitAll(ID3D11Device* device)
 	Effects::TreeSpriteFX->Light3Tech->GetPassByIndex(0)->GetDesc(&passDesc);
 	HR(device->CreateInputLayout(InputLayoutDesc::TreePointSprite, 2, passDesc.pIAInputSignature,
 		passDesc.IAInputSignatureSize, &TreePointSprite));
+
+	Effects::SphereFX->Light3Tech->GetPassByIndex(0)->GetDesc(&passDesc);
+	HR(device->CreateInputLayout(InputLayoutDesc::Sphere, 2, passDesc.pIAInputSignature,
+		passDesc.IAInputSignatureSize, &TreePointSprite));
 }
 
 void InputLayouts::DestroyAll()
 {
 	ReleaseCOM(Basic32);
 	ReleaseCOM(TreePointSprite);
+	ReleaseCOM(Sphere);
 }
 
 #pragma endregion
