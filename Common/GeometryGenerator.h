@@ -81,6 +81,10 @@ public:
 	///</summary>
 	void CreateFullscreenQuad(MeshData& meshData);
 
+	///<summary>
+	/// Creates a icosahedron centered at the origin with radius of its circumstantial sphere 
+	///</summary>
+	void CreateIcosahedron(float radius, MeshData& meshData);
 private:
 	void Subdivide(MeshData& meshData);
 	void BuildCylinderTopCap(float bottomRadius, float topRadius, float height, UINT sliceCount, UINT stackCount, MeshData& meshData);

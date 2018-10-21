@@ -47,7 +47,7 @@ void InputLayouts::InitAll(ID3D11Device* device)
 
 	Effects::SphereFX->Light3Tech->GetPassByIndex(0)->GetDesc(&passDesc);
 	HR(device->CreateInputLayout(InputLayoutDesc::Sphere, 2, passDesc.pIAInputSignature,
-		passDesc.IAInputSignatureSize, &TreePointSprite));
+		passDesc.IAInputSignatureSize, &Sphere));
 }
 
 void InputLayouts::DestroyAll()

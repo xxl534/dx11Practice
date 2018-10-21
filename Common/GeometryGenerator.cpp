@@ -198,6 +198,97 @@ void GeometryGenerator::CreateSphere(float radius, UINT sliceCount, UINT stackCo
 	}
 }
  
+void GeometryGenerator::CreateIcosahedron(float radius, MeshData & meshData)
+{
+	//https://en.wikipedia.org/wiki/Regular_icosahedron
+
+	meshData.Vertices.clear();
+	meshData.Indices.clear();
+
+	UINT vertexCount = 12;
+	UINT faceCount = 20;
+	meshData.Vertices.resize(vertexCount);
+	std::vector<Vertex>& v = meshData.Vertices;
+
+	float phi = (1 + sqrtf(5.f))*0.5f;
+	float len = sqrtf(phi * phi + 1);
+	float a = 1.f / len;
+	float b = phi / len;
+
+	v[0].Position = XMFLOAT3(0.f, a, b );
+	v[1].Position = XMFLOAT3(0.f, -a, b );
+	v[2].Position = XMFLOAT3(0.f, a, -b );
+	v[3].Position = XMFLOAT3(0.f, -a, -b );
+
+	v[4].Position = XMFLOAT3(a, b, 0.f );
+	v[5].Position = XMFLOAT3(-a, b, 0.f );
+	v[6].Position = XMFLOAT3(a, -b, 0.f );
+	v[7].Position = XMFLOAT3(-a, -b, 0.f );
+
+	v[8].Position = XMFLOAT3(b, 0.f, a );
+	v[9].Position = XMFLOAT3(b, 0.f, -a );
+	v[10].Position = XMFLOAT3(-b, 0.f, a );
+	v[11].Position = XMFLOAT3(-b, 0.f, -a );
+
+	std::vector<UINT>& indices = meshData.Indices;
+	//8 triangle faces whose vertices come from 3 different golden rectangles. 
+	indices.push_back(0); indices.push_back(4); indices.push_back(8);	//normal parallel to (1,1,1)
+	indices.push_back(0); indices.push_back(5); indices.push_back(10);	//normal parallel to (-1,1,1)
+	indices.push_back(1); indices.push_back(6); indices.push_back(8);	//normal parallel to ( 1, -1, 1 )
+	indices.push_back(1); indices.push_back(7); indices.push_back(10);	//normal parallel to ( -1, -1, 1 )
+	indices.push_back(2); indices.push_back(4); indices.push_back(9);	//normal parallel to ( 1, 1, -1 )
+	indices.push_back(2); indices.push_back(5); indices.push_back(11);	//normal parallel to ( -1, 1, -1 )
+	indices.push_back(3); indices.push_back(6); indices.push_back(9);	//normal parallel to ( 1, -1, -1 )
+	indices.push_back(3); indices.push_back(7); indices.push_back(11);	//normal parallel to ( -1, -1, -1 )
+																		//12 triangle faces whose vertices come from 2 different golden rectangles.
+	indices.push_back(0); indices.push_back(1); indices.push_back(8);
+	indices.push_back(0); indices.push_back(1); indices.push_back(10);
+	indices.push_back(2); indices.push_back(3); indices.push_back(9);
+	indices.push_back(2); indices.push_back(3); indices.push_back(11);
+	indices.push_back(4); indices.push_back(5); indices.push_back(0);
+	indices.push_back(4); indices.push_back(5); indices.push_back(2);
+	indices.push_back(6); indices.push_back(7); indices.push_back(1);
+	indices.push_back(6); indices.push_back(7); indices.push_back(3);
+	indices.push_back(8); indices.push_back(9); indices.push_back(4);
+	indices.push_back(8); indices.push_back(9); indices.push_back(6);
+	indices.push_back(10); indices.push_back(11); indices.push_back(5);
+	indices.push_back(10); indices.push_back(11); indices.push_back(7);
+	for (UINT i = 0; i < faceCount; ++i)
+	{
+		UINT i0 = i * 3;
+		UINT i1 = i * 3 + 1;
+		UINT i2 = i * 3 + 2;
+		XMVECTOR v0 = XMLoadFloat3(&v[indices[i0]].Position);
+		XMVECTOR v1 = XMLoadFloat3(&v[indices[i1]].Position);
+		XMVECTOR v2 = XMLoadFloat3(&v[indices[i2]].Position);
+		XMVECTOR vNormal = XMVector3Cross(v1 - v0, v2 - v1);
+		if (XMVectorGetX(XMVector3Dot(vNormal, v0)) < 0.f)
+		{
+			MathHelper::Swap(indices[i1], indices[i2]);
+		}
+	}
+
+	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
+	for (UINT i = 0; i < vertexCount; ++i)
+	{
+		v[i].Normal = v[i].Position;
+		XMVECTOR normal = XMLoadFloat3(&v[i].Normal);
+		XMVECTOR bitangent = XMVector3Cross(normal, up);
+		XMVECTOR tangent = XMVector3Normalize(XMVector3Cross(bitangent, normal));
+		XMStoreFloat3(&v[i].TangentU, tangent);
+		XMStoreFloat3(&v[i].Position, normal * radius);
+		
+		float radianVert = acosf(v[i].Normal.y);
+		
+		XMVECTOR hori = XMVectorSet(v[i].Normal.x, 0.f, v[i].Normal.z, 0.f);
+		hori = XMVector3Normalize(hori);
+		float radianHori = atan2f(XMVectorGetZ(hori), XMVectorGetX(hori));
+
+		v[i].TexC.y = radianVert / MathHelper::Pi;
+		v[i].TexC.x = radianHori * 0.5f / MathHelper::Pi + 0.5f;
+	}
+}
+
 void GeometryGenerator::Subdivide(MeshData& meshData)
 {
 	// Save a copy of the input geometry.
