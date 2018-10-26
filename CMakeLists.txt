@@ -38,3 +38,5 @@ ADD_SUBDIRECTORY(Chapter/stencil_10/cylinder)
 
 ADD_SUBDIRECTORY(Chapter/geometry_11/treeBillboard)
 ADD_SUBDIRECTORY(Chapter/geometry_11/Explosion)
+
+ADD_SUBDIRECTORY(Chapter/compute_12/blur)
