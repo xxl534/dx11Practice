@@ -78,36 +78,38 @@ BasicEffect::~BasicEffect()
 }
 #pragma endregion
 
-#pragma region BlurEffect
-BlurEffect::BlurEffect(ID3D11Device* device, const std::wstring& filename)
+#pragma region VecAddEffect
+
+VecAddEffect::VecAddEffect(ID3D11Device * device, const std::wstring & filename)
 	:Effect(device, filename)
 {
-	HorzBlurTech = mFX->GetTechniqueByName("HorzBlur");
-	VertBlurTech = mFX->GetTechniqueByName("VertBlur");
+	VecAddTech = mFX->GetTechniqueByName("VecAdd");
 
-	Weights = mFX->GetVariableByName("gWeights")->AsScalar();
-	InputMap = mFX->GetVariableByName("gInput")->AsShaderResource();
-	OutputMap = mFX->GetVariableByName("gOutput")->AsUnorderedAccessView();
+	InputA = mFX->GetVariableByName("gInputA")->AsShaderResource();
+	InputB = mFX->GetVariableByName("gInputB")->AsShaderResource();
+	Output = mFX->GetVariableByName("gOutput")->AsUnorderedAccessView();
 }
 
-BlurEffect::~BlurEffect()
+VecAddEffect::~VecAddEffect()
 {
 }
 #pragma endregion
+
 #pragma region Effects
 
 BasicEffect* Effects::BasicFX = NULL;
-BlurEffect* Effects::BlurFX = NULL;
+VecAddEffect* Effects::VecAddFX = NULL;
 
 void Effects::InitAll(ID3D11Device* device)
 {
 	BasicFX = new BasicEffect(device, L"FX/Basic.fx");
-	BlurFX = new BlurEffect(device, L"FX/Blur.fx");
+	VecAddFX = new VecAddEffect(device, L"FX/VecAdd.fx");
 }
 
 void Effects::DestroyAll()
 {
 	SafeDelete(BasicFX);
-	SafeDelete(BlurFX);
+	SafeDelete(VecAddFX);
 }
 #pragma endregion
+
