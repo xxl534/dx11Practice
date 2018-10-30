@@ -41,3 +41,6 @@ ADD_SUBDIRECTORY(Chapter/geometry_11/Explosion)
 
 ADD_SUBDIRECTORY(Chapter/compute_12/blur)
 ADD_SUBDIRECTORY(Chapter/compute_12/compute)
+ADD_SUBDIRECTORY(Chapter/compute_12/wave)
+
+ADD_SUBDIRECTORY(Chapter/tessellation_13/basicTessellation)

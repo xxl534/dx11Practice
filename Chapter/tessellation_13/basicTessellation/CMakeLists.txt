@@ -1,0 +1,28 @@
+AUX_SOURCE_DIRECTORY(. SRC)
+
+FILE(GLOB_RECURSE INC "*.h")
+FILE(GLOB_RECURSE INC_TEMP "*.inl")
+LIST(APPEND INC ${INC_TEMP})
+	
+LINK_DIRECTORIES(
+../../../../3rd/lib
+)
+INCLUDE_DIRECTORIES(
+../../../Common;
+../../../3rd/include/fx11;
+../../../3rd/include/directXTK;
+)
+
+ADD_EXE( BasicTessellation "${INC}" "${SRC}" )
+SET_TARGET_PROPERTIES(BasicTessellation PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+SET_TARGET_PROPERTIES(BasicTessellation PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+SET_PROPERTY(TARGET BasicTessellation PROPERTY FOLDER "Chapter/Tessellation")
+
+ADD_DEPENDENCIES( BasicTessellation Common )
+TARGET_LINK_LIBRARIES( BasicTessellation Common )
+FOREACH(item ${LINK_LIB_DEBUG})
+	TARGET_LINK_LIBRARIES(BasicTessellation debug ${item})
+ENDFOREACH(item)
+FOREACH(item ${LINK_LIB_RELEASE})
+	TARGET_LINK_LIBRARIES(BasicTessellation optimized ${item})
+ENDFOREACH(item)
