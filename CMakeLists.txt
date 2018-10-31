@@ -44,3 +44,4 @@ ADD_SUBDIRECTORY(Chapter/compute_12/compute)
 ADD_SUBDIRECTORY(Chapter/compute_12/wave)
 
 ADD_SUBDIRECTORY(Chapter/tessellation_13/basicTessellation)
+ADD_SUBDIRECTORY(Chapter/tessellation_13/bezierPatch)
