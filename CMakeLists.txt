@@ -45,3 +45,6 @@ ADD_SUBDIRECTORY(Chapter/compute_12/wave)
 
 ADD_SUBDIRECTORY(Chapter/tessellation_13/basicTessellation)
 ADD_SUBDIRECTORY(Chapter/tessellation_13/bezierPatch)
+ADD_SUBDIRECTORY(Chapter/tessellation_13/icosahedron)
+
+ADD_SUBDIRECTORY(Chapter/camera_14/camera)
