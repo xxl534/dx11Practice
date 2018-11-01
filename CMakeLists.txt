@@ -50,3 +50,5 @@ ADD_SUBDIRECTORY(Chapter/tessellation_13/icosahedron)
 ADD_SUBDIRECTORY(Chapter/camera_14/camera)
 
 ADD_SUBDIRECTORY(Chapter/instance_15/instance)
+
+ADD_SUBDIRECTORY(Chapter/picking_16/picking)

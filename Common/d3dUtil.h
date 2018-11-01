@@ -149,4 +149,32 @@ public:
 
 };
 
+
+template<int col> inline  
+float MatrixCom(CXMMATRIX m, int row)
+{
+	return 0.f;
+}
+template<> inline
+float MatrixCom<0>(CXMMATRIX m, int row)
+{
+	return ::XMVectorGetX(m.r[row]);
+}
+template<> inline
+float MatrixCom<1>(CXMMATRIX m, int row)
+{
+	return ::XMVectorGetY(m.r[row]);
+}
+template<> inline
+float MatrixCom<2>(CXMMATRIX m, int row)
+{
+	return ::XMVectorGetZ(m.r[row]);
+}
+template<> inline
+float MatrixCom<3>(CXMMATRIX m, int row)
+{
+	return ::XMVectorGetW(m.r[row]);
+}
+
+#define MatrixGet( m, row, col ) (MatrixCom<col>(m,row) )
 #endif // D3DUTIL_H
