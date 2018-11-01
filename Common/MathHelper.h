@@ -77,6 +77,12 @@ public:
 		return XMMatrixTranspose(XMMatrixInverse(&det, A));
 	}
 
+	static XMMATRIX InverseMatrix(CXMMATRIX m)
+	{
+		XMVECTOR det = XMMatrixDeterminant(m);
+		return XMMatrixInverse(&det, m);
+	}
+
 	static XMVECTOR RandUnitVec3();
 	static XMVECTOR RandHemisphereUnitVec3(XMVECTOR n);
 
