@@ -55,3 +55,5 @@ ADD_SUBDIRECTORY(Chapter/picking_16/picking)
 
 ADD_SUBDIRECTORY(Chapter/cube_map_17/cubeMap)
 ADD_SUBDIRECTORY(Chapter/cube_map_17/dynamicCubeMap)
+
+ADD_SUBDIRECTORY(Chapter/normal_map_18/normalMap)
