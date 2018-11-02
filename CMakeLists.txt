@@ -52,3 +52,6 @@ ADD_SUBDIRECTORY(Chapter/camera_14/camera)
 ADD_SUBDIRECTORY(Chapter/instance_15/instance)
 
 ADD_SUBDIRECTORY(Chapter/picking_16/picking)
+
+ADD_SUBDIRECTORY(Chapter/cube_map_17/cubeMap)
+ADD_SUBDIRECTORY(Chapter/cube_map_17/dynamicCubeMap)
