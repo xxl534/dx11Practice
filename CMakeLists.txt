@@ -20,6 +20,8 @@ else( CMAKE_SIZEOF_VOID_P EQUAL 8 )
 endif( CMAKE_SIZEOF_VOID_P EQUAL 8 )
 SET(LINK_LIB_DEBUG "d3d11.lib" "D3DCompiler.lib" "Effects11d.lib" "dxgi.lib" "dxguid.lib" "DirectXTK.lib")
 SET(LINK_LIB_RELEASE "d3d11.lib" "D3DCompiler.lib" "Effects11.lib" "dxgi.lib" "dxguid.lib" "DirectXTK.lib")
+
+SET(MEDIA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Media")
 INCLUDE(CMakeMacro.txt)
 INCLUDE(CMake_PreCompiled.txt)
 
@@ -57,3 +59,5 @@ ADD_SUBDIRECTORY(Chapter/cube_map_17/cubeMap)
 ADD_SUBDIRECTORY(Chapter/cube_map_17/dynamicCubeMap)
 
 ADD_SUBDIRECTORY(Chapter/normal_map_18/normalMap)
+
+ADD_SUBDIRECTORY(Chapter/terrain_19/terrain)
