@@ -61,3 +61,4 @@ ADD_SUBDIRECTORY(Chapter/cube_map_17/dynamicCubeMap)
 ADD_SUBDIRECTORY(Chapter/normal_map_18/normalMap)
 
 ADD_SUBDIRECTORY(Chapter/terrain_19/terrain)
+ADD_SUBDIRECTORY(Chapter/particle_20/particle)
