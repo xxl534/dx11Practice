@@ -90,7 +90,7 @@ void ParticleSystem::Draw(ID3D11DeviceContext* dc, const Camera& cam)
 	UINT stride = sizeof(Vertex::Particle);
 	UINT offset = 0;
 
-	dc->Begin(mDebugQuery);
+	//dc->Begin(mDebugQuery);
 	if (mFirstRun)
 		dc->IASetVertexBuffers(0, 1, &mInitVB, &stride, &offset);
 	else
@@ -114,8 +114,8 @@ void ParticleSystem::Draw(ID3D11DeviceContext* dc, const Camera& cam)
 			dc->DrawAuto();
 		}
 	}
-	dc->End(mDebugQuery);
-	/*dc->CopyResource(mDebugVB, mStreamOutVB);
+	/*dc->End(mDebugQuery);
+	dc->CopyResource(mDebugVB, mStreamOutVB);
 	D3D11_QUERY_DATA_SO_STATISTICS stat;
 	while (S_OK != dc->GetData(mDebugQuery, &stat, sizeof(D3D11_QUERY_DATA_SO_STATISTICS), 0))
 	{
