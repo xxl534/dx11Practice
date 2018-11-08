@@ -154,3 +154,37 @@ float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, floa
 
 	return bumpedNormalW;
 }
+
+//---------------------------------------------------------------------------------------
+// Performs shadowmap test to determine if a pixel is in shadow.
+//---------------------------------------------------------------------------------------
+static const float SMAP_SIZE = 2048.f;
+static const float SMAP_DX = 1.f/SMAP_SIZE;
+
+float CalcShadowFactor(SamplerComparisonState samShadow,
+						Texture2D shadowMap,
+						float4 	shadowPosH)
+{
+	shadowPosH.xyz /= shadowPosH.w;
+	
+	float depth = shadowPosH.z;
+	
+	const float d = SMAP_DX;
+	
+	float percentLit = 0.f;
+	const float2 offsets[9] = 
+	{
+		float2(-d,-d),float2(0.f,-d),float2(d,-d),
+		float2(-d,0.f),float2(0.f,0.f),float2(d,0.f),
+		float2(-d,d),float2(0.f,d),float2(d,d)
+	};
+	
+	[unroll]
+	for(int i = 0; i < 9; ++i)
+	{
+		percentLit += shadowMap.SampleCmpLevelZero(samShadow,
+			shadowPosH.xy + offsets[i], depth).r;
+	}
+	
+	return percentLit /= 9.f;
+}
