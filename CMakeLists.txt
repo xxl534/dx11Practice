@@ -64,3 +64,6 @@ ADD_SUBDIRECTORY(Chapter/terrain_19/terrain)
 ADD_SUBDIRECTORY(Chapter/particle_20/particle)
 
 ADD_SUBDIRECTORY(Chapter/21_shadowmapping/shadowmapping)
+
+ADD_SUBDIRECTORY(Chapter/22_ambient_occlusion/ambientOcclusion)
+ADD_SUBDIRECTORY(Chapter/22_ambient_occlusion/ssao)
