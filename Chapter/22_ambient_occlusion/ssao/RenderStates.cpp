@@ -14,6 +14,7 @@ ID3D11DepthStencilState* RenderStates::MarkMirrorDSS = NULL;
 ID3D11DepthStencilState* RenderStates::DrawReflectionDSS = NULL;
 ID3D11DepthStencilState* RenderStates::NoDoubleBlendDSS = NULL;
 ID3D11DepthStencilState* RenderStates::LessEqualDSS = NULL;
+ID3D11DepthStencilState* RenderStates::EqualDSS = NULL;
 
 void 
 RenderStates::InitAll(ID3D11Device* device)
@@ -162,6 +163,13 @@ RenderStates::InitAll(ID3D11Device* device)
 	lessEqualDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	lessEqualDesc.StencilEnable = FALSE;
 	HR(device->CreateDepthStencilState(&lessEqualDesc, &LessEqualDSS));
+
+	D3D11_DEPTH_STENCIL_DESC equalDesc;
+	equalDesc.DepthEnable = TRUE;
+	equalDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	equalDesc.DepthFunc = D3D11_COMPARISON_EQUAL;
+	equalDesc.StencilEnable = FALSE;
+	HR(device->CreateDepthStencilState(&equalDesc, &EqualDSS));
 }
 
 void 

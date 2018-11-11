@@ -9,6 +9,7 @@
 #include "xnacollision.h"
 #include "Sky.h"
 #include "ShadowMap.h"
+#include "Ssao.h"
 
 enum RenderOptions
 {
@@ -25,11 +26,11 @@ struct BoundingSphere
 	float Radius;
 };
 
-class ShadowMappingApp :public D3DApp
+class SsaoApp :public D3DApp
 {
 public:
-	ShadowMappingApp(HINSTANCE hInstance);
-	~ShadowMappingApp();
+	SsaoApp(HINSTANCE hInstance);
+	~SsaoApp();
 
 	bool Init();
 	void OnResize();
@@ -42,7 +43,7 @@ public:
 private:
 	void DrawSceneToSsaoNormalDepthMap();
 	void DrawSceneToShadowMap();
-	void DrawScreenQuad();
+	void DrawScreenQuad(ID3D11ShaderResourceView* srv);
 	void BuildShadowTransform();
 	void BuildShapeGeometryBuffers();
 	void BuildSkullGeometryBuffers();
@@ -72,6 +73,8 @@ private:
 	XMFLOAT4X4 mLightView;
 	XMFLOAT4X4 mLightProj;
 	XMFLOAT4X4 mShadowTransform;
+
+	Ssao* mSsao;
 
 	float mLightRotationAngle;
 	XMFLOAT3 mOriginalLightDir[3];
@@ -122,7 +125,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-	ShadowMappingApp theApp(hInstance);
+	SsaoApp theApp(hInstance);
 
 	if (!theApp.Init())
 		return 0;
@@ -130,7 +133,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 	return theApp.Run();
 }
 
-ShadowMappingApp::ShadowMappingApp(HINSTANCE hInstance)
+SsaoApp::SsaoApp(HINSTANCE hInstance)
 	:D3DApp(hInstance)
 	, mSky(NULL)
 	, mShapesVB(NULL)
@@ -158,12 +161,13 @@ ShadowMappingApp::ShadowMappingApp(HINSTANCE hInstance)
 	, mSkullIndexCount(0)
 	, mPhi(0.4f*MathHelper::Pi)
 	, mCamera(NULL)
-	, mMoveSpeed(10.f)
-	, mRenderOptions(RenderOptionsNormalMap)
+	, mMoveSpeed(2.f)
+	, mRenderOptions(RenderOptionsDisplacementMap)
 	, mLightRotationAngle(0.f)
 	, mSmap(NULL)
+	, mSsao(NULL)
 {
-	mMainWndCaption = L"Shadow mapping Demo";
+	mMainWndCaption = L"Ssao Demo";
 	mEnable4xMsaa = false;
 
 	mCamera = new Camera();
@@ -251,10 +255,12 @@ ShadowMappingApp::ShadowMappingApp(HINSTANCE hInstance)
 	mSkullMat.Reflect = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
 }
 
-ShadowMappingApp::~ShadowMappingApp()
+SsaoApp::~SsaoApp()
 {
 	md3dImmediateContext->ClearState();
 	SafeDelete(mSky);
+	SafeDelete(mSmap);
+	SafeDelete(mSsao);
 
 	ReleaseCOM(mShapesVB);
 	ReleaseCOM(mShapesIB);
@@ -274,7 +280,7 @@ ShadowMappingApp::~ShadowMappingApp()
 	SafeDelete(mCamera);
 }
 
-bool ShadowMappingApp::Init()
+bool SsaoApp::Init()
 {
 	if (!D3DApp::Init())
 	{
@@ -287,6 +293,8 @@ bool ShadowMappingApp::Init()
 
 	mSky = new Sky(md3dDevice, L"Textures/grasscube1024.dds", 5000.0f);
 	mSmap = new ShadowMap(md3dDevice, SMapSize, SMapSize);
+
+	mSsao = new Ssao(md3dDevice, md3dImmediateContext, mClientWidth, mClientHeight, mCamera->GetFovY(), mCamera->GetFarZ());
 
 	HR(CreateDDSTextureFromFile(md3dDevice,
 		L"Textures/floor.dds", NULL, &mStoneTexSRV));
@@ -307,15 +315,18 @@ bool ShadowMappingApp::Init()
 	return true;
 }
 
-void ShadowMappingApp::OnResize()
+void SsaoApp::OnResize()
 {
 	D3DApp::OnResize();
 
 	mCamera->SetLens(0.25f*MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
-
+	if(mSsao)
+	{
+		mSsao->OnSize(mClientWidth, mClientHeight, mCamera->GetFovY(), mCamera->GetFarZ());
+	}
 }
 
-void ShadowMappingApp::UpdateScene(float dt)
+void SsaoApp::UpdateScene(float dt)
 {
 	
 	if (GetAsyncKeyState('W') & 0x8000)
@@ -366,21 +377,46 @@ void ShadowMappingApp::UpdateScene(float dt)
 	mCamera->UpdateViewMatrix();
 }
 
-void ShadowMappingApp::DrawScene()
+void SsaoApp::DrawScene()
 {
+
+	//Render the scene to the shadow map.
 	mSmap->BindDsvAndSetNullRenderTarget(md3dImmediateContext);
 	DrawSceneToShadowMap();
 	md3dImmediateContext->RSSetState(NULL);
 
+	//Render the view space normals and depths, This render target has the 
+	//same dimensions as the back buffer, so we can use the screen viewport.
+	//This render pass is needed to compute the ambient occlusion.
+	//Notice that we use the main depth.stencil buffer in this pass.
 	//
-	// Restore the back and depth buffer to the OM stage.
+	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+	md3dImmediateContext->RSSetViewports(1, &mScreenViewport);
+	mSsao->SetNormalDepthRenderTarget(mDepthStencilView);
+	DrawSceneToSsaoNormalDepthMap();
+
+	//Compute the ambient occlusion.
+	mSsao->ComputeSsao(*mCamera);
+	mSsao->BlurAmbientMap(4);
+
+	//
+	// Restore the back and depth buffer and viewport to the OM stage.
 	//
 	ID3D11RenderTargetView* rt[1] = { mRenderTargetView };
 	md3dImmediateContext->OMSetRenderTargets(1, rt, mDepthStencilView);
 	md3dImmediateContext->RSSetViewports(1, &mScreenViewport);
 
 	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, reinterpret_cast<const float*>(&Colors::Silver));
-	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	//We already laid down scene depth to the depth buffer in the Normal/Depth map pass,
+	//so we can set the depth comparison test to EQUALS. This prevents any overdraw in this
+	//rendering pass, as only the nearest visible pixels will pass the depth comparison test.
+	//md3dImmediateContext->OMSetDepthStencilState(RenderStates::LessEqualDSS, 0);
+
+	//But in case of drawing displacement map,the depth stencil state above is invalid because ssao is drawn without
+	//displacement map and errors exist in vertex's world coordinate.
+	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+
+
 
 	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
 	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -396,16 +432,19 @@ void ShadowMappingApp::DrawScene()
 	Effects::BasicFX->SetEyePosW(eyePos);
 	Effects::BasicFX->SetCubeMap(skySRV);
 	Effects::BasicFX->SetShadowMap(mSmap->DepthMapSRV());
+	Effects::BasicFX->SetSsaoMap(mSsao->AmbientSRV());
 
 	Effects::NormalMapFX->SetDirLights(mDirLights);
 	Effects::NormalMapFX->SetEyePosW(eyePos);
 	Effects::NormalMapFX->SetCubeMap(skySRV);
 	Effects::NormalMapFX->SetShadowMap(mSmap->DepthMapSRV());
+	Effects::NormalMapFX->SetSsaoMap(mSsao->AmbientSRV());
 
 	Effects::DisplacementMapFX->SetDirLights(mDirLights);
 	Effects::DisplacementMapFX->SetEyePosW(eyePos);
 	Effects::DisplacementMapFX->SetCubeMap(skySRV);
 	Effects::DisplacementMapFX->SetShadowMap(mSmap->DepthMapSRV());
+	Effects::DisplacementMapFX->SetSsaoMap(mSsao->AmbientSRV());
 
 	// These properties could be set per object if needed.
 	Effects::DisplacementMapFX->SetHeightScale(0.07f);
@@ -438,6 +477,14 @@ void ShadowMappingApp::DrawScene()
 	XMMATRIX world;
 	XMMATRIX worldInvTranspose;
 	XMMATRIX worldViewProj;
+
+	//Transform NDC space [-1,+1]^2 to texture space[0,1]^2
+	XMMATRIX toTexSpace(
+		0.5f, 0.f, 0.f, 0.f,
+		0.f, -0.5f, 0.f, 0.f,
+		0.f, 0.f, 1.f, 0.f,
+		0.5f, 0.5f, 0.f, 1.f);
+
 	XMMATRIX shadowTransform = XMLoadFloat4x4(&mShadowTransform);
 
 	UINT stride = sizeof(Vertex::PosNormalTexTan);
@@ -466,6 +513,7 @@ void ShadowMappingApp::DrawScene()
 			Effects::BasicFX->SetWorld(world);
 			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 			Effects::BasicFX->SetWorldViewProj(worldViewProj);
+			Effects::BasicFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 			Effects::BasicFX->SetTexTransform(XMMatrixScaling(8.0f, 10.0f, 1.0f));
 			Effects::BasicFX->SetShadowTransform(world*shadowTransform);
 			Effects::BasicFX->SetMaterial(mGridMat);
@@ -475,6 +523,7 @@ void ShadowMappingApp::DrawScene()
 			Effects::NormalMapFX->SetWorld(world);
 			Effects::NormalMapFX->SetWorldInvTranspose(worldInvTranspose);
 			Effects::NormalMapFX->SetWorldViewProj(worldViewProj);
+			Effects::NormalMapFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 			Effects::NormalMapFX->SetTexTransform(XMMatrixScaling(8.0f, 10.0f, 1.0f));
 			Effects::NormalMapFX->SetShadowTransform(world*shadowTransform);
 			Effects::NormalMapFX->SetMaterial(mGridMat);
@@ -485,6 +534,7 @@ void ShadowMappingApp::DrawScene()
 			Effects::DisplacementMapFX->SetWorld(world);
 			Effects::DisplacementMapFX->SetWorldInvTranspose(worldInvTranspose);
 			Effects::DisplacementMapFX->SetViewProj(viewProj);
+			Effects::DisplacementMapFX->SetViewProjTex(viewProj*toTexSpace);
 			Effects::DisplacementMapFX->SetWorldViewProj(worldViewProj);
 			Effects::DisplacementMapFX->SetTexTransform(XMMatrixScaling(8.0f, 10.0f, 1.0f));
 			Effects::DisplacementMapFX->SetShadowTransform(shadowTransform);
@@ -508,6 +558,7 @@ void ShadowMappingApp::DrawScene()
 			Effects::BasicFX->SetWorld(world);
 			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 			Effects::BasicFX->SetWorldViewProj(worldViewProj);
+			Effects::BasicFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 			Effects::BasicFX->SetTexTransform(XMMatrixScaling(2.0f, 1.0f, 1.0f));
 			Effects::BasicFX->SetShadowTransform(world*shadowTransform);
 			Effects::BasicFX->SetMaterial(mBoxMat);
@@ -517,6 +568,7 @@ void ShadowMappingApp::DrawScene()
 			Effects::NormalMapFX->SetWorld(world);
 			Effects::NormalMapFX->SetWorldInvTranspose(worldInvTranspose);
 			Effects::NormalMapFX->SetWorldViewProj(worldViewProj);
+			Effects::NormalMapFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 			Effects::NormalMapFX->SetTexTransform(XMMatrixScaling(2.0f, 1.0f, 1.0f));
 			Effects::NormalMapFX->SetShadowTransform(world*shadowTransform);
 			Effects::NormalMapFX->SetMaterial(mBoxMat);
@@ -527,6 +579,7 @@ void ShadowMappingApp::DrawScene()
 			Effects::DisplacementMapFX->SetWorld(world);
 			Effects::DisplacementMapFX->SetWorldInvTranspose(worldInvTranspose);
 			Effects::DisplacementMapFX->SetViewProj(viewProj);
+			Effects::DisplacementMapFX->SetViewProjTex(viewProj*toTexSpace);
 			Effects::DisplacementMapFX->SetWorldViewProj(worldViewProj);
 			Effects::DisplacementMapFX->SetTexTransform(XMMatrixScaling(2.0f, 1.0f, 1.0f));
 			Effects::DisplacementMapFX->SetShadowTransform(shadowTransform);
@@ -551,6 +604,7 @@ void ShadowMappingApp::DrawScene()
 				Effects::BasicFX->SetWorld(world);
 				Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 				Effects::BasicFX->SetWorldViewProj(worldViewProj);
+				Effects::BasicFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 				Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 2.0f, 1.0f));
 				Effects::BasicFX->SetShadowTransform(world*shadowTransform);
 				Effects::BasicFX->SetMaterial(mCylinderMat);
@@ -560,6 +614,7 @@ void ShadowMappingApp::DrawScene()
 				Effects::NormalMapFX->SetWorld(world);
 				Effects::NormalMapFX->SetWorldInvTranspose(worldInvTranspose);
 				Effects::NormalMapFX->SetWorldViewProj(worldViewProj);
+				Effects::NormalMapFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 				Effects::NormalMapFX->SetTexTransform(XMMatrixScaling(1.0f, 2.0f, 1.0f));
 				Effects::NormalMapFX->SetShadowTransform(world*shadowTransform);
 				Effects::NormalMapFX->SetMaterial(mCylinderMat);
@@ -570,6 +625,7 @@ void ShadowMappingApp::DrawScene()
 				Effects::DisplacementMapFX->SetWorld(world);
 				Effects::DisplacementMapFX->SetWorldInvTranspose(worldInvTranspose);
 				Effects::DisplacementMapFX->SetViewProj(viewProj);
+				Effects::DisplacementMapFX->SetViewProjTex(viewProj*toTexSpace);
 				Effects::DisplacementMapFX->SetWorldViewProj(worldViewProj);
 				Effects::DisplacementMapFX->SetTexTransform(XMMatrixScaling(1.0f, 2.0f, 1.0f));
 				Effects::DisplacementMapFX->SetShadowTransform(shadowTransform);
@@ -608,6 +664,7 @@ void ShadowMappingApp::DrawScene()
 			Effects::BasicFX->SetWorld(world);
 			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 			Effects::BasicFX->SetWorldViewProj(worldViewProj);
+			Effects::BasicFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 			Effects::BasicFX->SetTexTransform(XMMatrixIdentity());
 			Effects::BasicFX->SetShadowTransform(world*shadowTransform);
 			Effects::BasicFX->SetMaterial(mSphereMat);
@@ -619,7 +676,6 @@ void ShadowMappingApp::DrawScene()
 
 	stride = sizeof(Vertex::Basic32);
 	offset = 0;
-	md3dImmediateContext->RSSetState(0);
 
 	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
 	md3dImmediateContext->IASetVertexBuffers(0, 1, &mSkullVB, &stride, &offset);
@@ -636,6 +692,7 @@ void ShadowMappingApp::DrawScene()
 		Effects::BasicFX->SetWorld(world);
 		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 		Effects::BasicFX->SetWorldViewProj(worldViewProj);
+		Effects::BasicFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
 		Effects::BasicFX->SetMaterial(mSkullMat);
 		Effects::BasicFX->SetShadowTransform(world*shadowTransform);
 
@@ -643,12 +700,14 @@ void ShadowMappingApp::DrawScene()
 		md3dImmediateContext->DrawIndexed(mSkullIndexCount, 0, 0);
 	}
 
-	DrawScreenQuad();
+	md3dImmediateContext->RSSetState(NULL);
+
+	DrawScreenQuad(mSsao->AmbientSRV());
 
 	mSky->Draw(md3dImmediateContext, *mCamera);
 
 	// restore default states, as the SkyFX changes them in the effect file.
-	md3dImmediateContext->RSSetState(0);
+	md3dImmediateContext->RSSetState(NULL);
 	md3dImmediateContext->OMSetDepthStencilState(0, 0);
 	// Unbind shadow map as a shader input because we are going to render to it next frame.
 	// The shadow might might be at any slot, so clear all slots.
@@ -658,7 +717,7 @@ void ShadowMappingApp::DrawScene()
 	HR(mSwapChain->Present(0, 0));
 }
 
-void ShadowMappingApp::OnMouseDown(WPARAM btnState, int x, int y)
+void SsaoApp::OnMouseDown(WPARAM btnState, int x, int y)
 {
 	mLastMousePos.x = x;
 	mLastMousePos.y = y;
@@ -666,12 +725,12 @@ void ShadowMappingApp::OnMouseDown(WPARAM btnState, int x, int y)
 	SetCapture(mhMainWnd);
 }
 
-void ShadowMappingApp::OnMouseUp(WPARAM btnState, int x, int y)
+void SsaoApp::OnMouseUp(WPARAM btnState, int x, int y)
 {
 	ReleaseCapture();
 }
 
-void ShadowMappingApp::OnMouseMove(WPARAM btnState, int x, int y)
+void SsaoApp::OnMouseMove(WPARAM btnState, int x, int y)
 {
 	if ((btnState & MK_LBUTTON) != 0)
 	{
@@ -694,7 +753,132 @@ void ShadowMappingApp::OnMouseMove(WPARAM btnState, int x, int y)
 	mLastMousePos.y = y;
 }
 
-void ShadowMappingApp::DrawSceneToShadowMap()
+void SsaoApp::DrawSceneToSsaoNormalDepthMap()
+{
+	XMMATRIX view = mCamera->View();
+	XMMATRIX proj = mCamera->Proj();
+	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
+
+	ID3DX11EffectTechnique* tech = Effects::SsaoNormalDepthFX->NormalDepthTech;
+
+	XMMATRIX world;
+	XMMATRIX worldInvTranspose;
+	XMMATRIX worldView;
+	XMMATRIX worldInvTransposeView;
+	XMMATRIX worldViewProj;
+
+	//
+	// Draw the grid, cylinders, spheres and box.
+
+	UINT stride = sizeof(Vertex::PosNormalTexTan);
+	UINT offset = 0;
+
+	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	md3dImmediateContext->IASetInputLayout(InputLayouts::PosNormalTexTan);
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+
+	D3DX11_TECHNIQUE_DESC techDesc;
+	tech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		// Draw the grid.
+		world = XMLoadFloat4x4(&mGridWorld);
+		worldInvTranspose = MathHelper::InverseTranspose(world);
+		worldView = world*view;
+		worldInvTransposeView = worldInvTranspose*view;
+		worldViewProj = world*view*proj;
+
+		Effects::SsaoNormalDepthFX->SetWorldView(worldView);
+		Effects::SsaoNormalDepthFX->SetWorldInvTransposeView(worldInvTransposeView);
+		Effects::SsaoNormalDepthFX->SetWorldViewProj(worldViewProj);
+		Effects::SsaoNormalDepthFX->SetTexTransform(XMMatrixScaling(8.0f, 10.0f, 1.0f));
+
+		tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);
+
+		// Draw the box.
+		world = XMLoadFloat4x4(&mBoxWorld);
+		worldInvTranspose = MathHelper::InverseTranspose(world);
+		worldView = world*view;
+		worldInvTransposeView = worldInvTranspose*view;
+		worldViewProj = world*view*proj;
+
+		Effects::SsaoNormalDepthFX->SetWorldView(worldView);
+		Effects::SsaoNormalDepthFX->SetWorldInvTransposeView(worldInvTransposeView);
+		Effects::SsaoNormalDepthFX->SetWorldViewProj(worldViewProj);
+		Effects::SsaoNormalDepthFX->SetTexTransform(XMMatrixScaling(2.0f, 1.0f, 1.0f));
+
+		tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->DrawIndexed(mBoxIndexCount, mBoxIndexOffset, mBoxVertexOffset);
+
+		// Draw the cylinders.
+		for (int i = 0; i < 10; ++i)
+		{
+			world = XMLoadFloat4x4(&mCylWorld[i]);
+			worldInvTranspose = MathHelper::InverseTranspose(world);
+			worldView = world*view;
+			worldInvTransposeView = worldInvTranspose*view;
+			worldViewProj = world*view*proj;
+
+			Effects::SsaoNormalDepthFX->SetWorldView(worldView);
+			Effects::SsaoNormalDepthFX->SetWorldInvTransposeView(worldInvTransposeView);
+			Effects::SsaoNormalDepthFX->SetWorldViewProj(worldViewProj);
+			Effects::SsaoNormalDepthFX->SetTexTransform(XMMatrixScaling(1.0f, 2.0f, 1.0f));
+
+			tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+			md3dImmediateContext->DrawIndexed(mCylinderIndexCount, mCylinderIndexOffset, mCylinderVertexOffset);
+		}
+
+		// Draw the spheres.
+		for (int i = 0; i < 10; ++i)
+		{
+			world = XMLoadFloat4x4(&mSphereWorld[i]);
+			worldInvTranspose = MathHelper::InverseTranspose(world);
+			worldView = world*view;
+			worldInvTransposeView = worldInvTranspose*view;
+			worldViewProj = world*view*proj;
+
+			Effects::SsaoNormalDepthFX->SetWorldView(worldView);
+			Effects::SsaoNormalDepthFX->SetWorldInvTransposeView(worldInvTransposeView);
+			Effects::SsaoNormalDepthFX->SetWorldViewProj(worldViewProj);
+			Effects::SsaoNormalDepthFX->SetTexTransform(XMMatrixIdentity());
+
+			tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+			md3dImmediateContext->DrawIndexed(mSphereIndexCount, mSphereIndexOffset, mSphereVertexOffset);
+		}
+	}
+
+	stride = sizeof(Vertex::Basic32);
+	offset = 0;
+
+
+	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mSkullVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mSkullIB, DXGI_FORMAT_R32_UINT, 0);
+
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		// Draw the skull.
+		world = XMLoadFloat4x4(&mSkullWorld);
+		worldInvTranspose = MathHelper::InverseTranspose(world);
+		worldView = world*view;
+		worldInvTransposeView = worldInvTranspose*view;
+		worldViewProj = world*view*proj;
+
+		Effects::SsaoNormalDepthFX->SetWorldView(worldView);
+		Effects::SsaoNormalDepthFX->SetWorldInvTransposeView(worldInvTransposeView);
+		Effects::SsaoNormalDepthFX->SetWorldViewProj(worldViewProj);
+		Effects::SsaoNormalDepthFX->SetTexTransform(XMMatrixIdentity());
+
+		tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->DrawIndexed(mSkullIndexCount, 0, 0);
+	}
+
+	md3dImmediateContext->RSSetState(NULL);
+}
+
+void SsaoApp::DrawSceneToShadowMap()
 {
 	XMMATRIX view = XMLoadFloat4x4(&mLightView);
 	XMMATRIX proj = XMLoadFloat4x4(&mLightProj);
@@ -830,7 +1014,6 @@ void ShadowMappingApp::DrawSceneToShadowMap()
 	stride = sizeof(Vertex::Basic32);
 	offset = 0;
 
-	md3dImmediateContext->RSSetState(0);
 
 	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
 	md3dImmediateContext->IASetVertexBuffers(0, 1, &mSkullVB, &stride, &offset);
@@ -853,9 +1036,11 @@ void ShadowMappingApp::DrawSceneToShadowMap()
 		smapTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
 		md3dImmediateContext->DrawIndexed(mSkullIndexCount, 0, 0);
 	}
+
+	md3dImmediateContext->RSSetState(NULL);
 }
 
-void ShadowMappingApp::DrawScreenQuad()
+void SsaoApp::DrawScreenQuad(ID3D11ShaderResourceView* srv)
 {
 	UINT stride = sizeof(Vertex::Basic32);
 	UINT offset = 0;
@@ -879,14 +1064,14 @@ void ShadowMappingApp::DrawScreenQuad()
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
 		Effects::DebugTexFX->SetWorldViewProj(world);
-		Effects::DebugTexFX->SetTexture(mSmap->DepthMapSRV());
+		Effects::DebugTexFX->SetTexture(srv);
 
 		tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
 		md3dImmediateContext->DrawIndexed(6, 0, 0);
 	}
 }
 
-void ShadowMappingApp::BuildShadowTransform()
+void SsaoApp::BuildShadowTransform()
 {
 	// Only the first "main" light casts a shadow.
 	XMVECTOR lightDir = XMLoadFloat3(&mDirLights[0].Direction);
@@ -923,7 +1108,7 @@ void ShadowMappingApp::BuildShadowTransform()
 	XMStoreFloat4x4(&mShadowTransform, s);
 }
 
-void ShadowMappingApp::BuildShapeGeometryBuffers()
+void SsaoApp::BuildShapeGeometryBuffers()
 {
 	GeometryGenerator::MeshData box;
 	GeometryGenerator::MeshData grid;
@@ -1037,7 +1222,7 @@ void ShadowMappingApp::BuildShapeGeometryBuffers()
 	HR(md3dDevice->CreateBuffer(&ibd, &iinitData, &mShapesIB));
 }
 
-void ShadowMappingApp::BuildSkullGeometryBuffers()
+void SsaoApp::BuildSkullGeometryBuffers()
 {
 	std::ifstream fin("Models/skull.txt");
 
@@ -1100,7 +1285,7 @@ void ShadowMappingApp::BuildSkullGeometryBuffers()
 	HR(md3dDevice->CreateBuffer(&ibd, &iinitData, &mSkullIB));
 }
 
-void ShadowMappingApp::BuildScreenQuadGeometryBuffers()
+void SsaoApp::BuildScreenQuadGeometryBuffers()
 {
 	GeometryGenerator::MeshData quad;
 

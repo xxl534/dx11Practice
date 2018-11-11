@@ -120,6 +120,7 @@ BasicEffect::BasicEffect(ID3D11Device* device, const std::wstring& filename)
 	Light3TexAlphaClipFogReflectTech = mFX->GetTechniqueByName("Light3TexAlphaClipFogReflect");
 
 	WorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	WorldViewProjTex = mFX->GetVariableByName("gWorldViewProjTex")->AsMatrix();
 	World = mFX->GetVariableByName("gWorld")->AsMatrix();
 	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
 	TexTransform = mFX->GetVariableByName("gTexTransform")->AsMatrix();
@@ -133,6 +134,7 @@ BasicEffect::BasicEffect(ID3D11Device* device, const std::wstring& filename)
 	DiffuseMap = mFX->GetVariableByName("gDiffuseMap")->AsShaderResource();
 	CubeMap = mFX->GetVariableByName("gCubeMap")->AsShaderResource();
 	ShadowMap = mFX->GetVariableByName("gShadowMap")->AsShaderResource();
+	SsaoMap = mFX->GetVariableByName("gSsaoMap")->AsShaderResource();
 }
 
 BasicEffect::~BasicEffect()
@@ -215,6 +217,7 @@ NormalMapEffect::NormalMapEffect(ID3D11Device* device, const std::wstring& filen
 	Light3TexAlphaClipFogReflectTech = mFX->GetTechniqueByName("Light3TexAlphaClipFogReflect");
 
 	WorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	WorldViewProjTex = mFX->GetVariableByName("gWorldViewProjTex")->AsMatrix();
 	World = mFX->GetVariableByName("gWorld")->AsMatrix();
 	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
 	TexTransform = mFX->GetVariableByName("gTexTransform")->AsMatrix();
@@ -229,6 +232,7 @@ NormalMapEffect::NormalMapEffect(ID3D11Device* device, const std::wstring& filen
 	CubeMap = mFX->GetVariableByName("gCubeMap")->AsShaderResource();
 	NormalMap = mFX->GetVariableByName("gNormalMap")->AsShaderResource();
 	ShadowMap = mFX->GetVariableByName("gShadowMap")->AsShaderResource();
+	SsaoMap = mFX->GetVariableByName("gSsaoMap")->AsShaderResource();
 }
 
 NormalMapEffect::~NormalMapEffect()
@@ -298,6 +302,7 @@ DisplacementMapEffect::DisplacementMapEffect(ID3D11Device* device, const std::ws
 
 	ViewProj = mFX->GetVariableByName("gViewProj")->AsMatrix();
 	WorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	ViewProjTex = mFX->GetVariableByName("gViewProjTex")->AsMatrix();
 	World = mFX->GetVariableByName("gWorld")->AsMatrix();
 	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
 	TexTransform = mFX->GetVariableByName("gTexTransform")->AsMatrix();
@@ -317,6 +322,7 @@ DisplacementMapEffect::DisplacementMapEffect(ID3D11Device* device, const std::ws
 	CubeMap = mFX->GetVariableByName("gCubeMap")->AsShaderResource();
 	NormalMap = mFX->GetVariableByName("gNormalMap")->AsShaderResource();
 	ShadowMap = mFX->GetVariableByName("gShadowMap")->AsShaderResource();
+	SsaoMap = mFX->GetVariableByName("gSsaoMap")->AsShaderResource();
 }
 
 DisplacementMapEffect::~DisplacementMapEffect()
@@ -449,15 +455,15 @@ SsaoBlurEffect*        Effects::SsaoBlurFX = NULL;
 
 void Effects::InitAll(ID3D11Device* device)
 {
-	BasicFX = new BasicEffect(device, L"FX/ShadowMapBasic.fxo");
-	NormalMapFX = new NormalMapEffect(device, L"FX/ShadowMapNormalMap.fxo");
-	DisplacementMapFX = new DisplacementMapEffect(device, L"FX/ShadowMapDisplacementMap.fxo");
+	SsaoBlurFX = new SsaoBlurEffect(device, L"FX/SsaoBlur.fxo");
+	SsaoNormalDepthFX = new SsaoNormalDepthEffect(device, L"FX/SsaoNormalDepth.fxo");
+	SsaoFX = new SsaoEffect(device, L"FX/Ssao.fxo");
+	BasicFX = new BasicEffect(device, L"FX/SsaoShadowMapBasic.fxo");
+	NormalMapFX = new NormalMapEffect(device, L"FX/SsaoShadowMapNormalMap.fxo");
+	DisplacementMapFX = new DisplacementMapEffect(device, L"FX/SsaoShadowMapDisplacementMap.fxo");
 	SkyFX = new SkyEffect(device, L"FX/Sky.fxo");
 	BuildShadowMapFX = new BuildShadowMapEffect(device, L"FX/BuildShadowMap.fxo");
 	DebugTexFX = new DebugTexEffect(device, L"FX/DebugTexture.fxo");
-	SsaoBlurFX = new SsaoBlurEffect(device, L"FX/SsaoBlur.fx");
-	SkyFX = new SkyEffect(device, L"FX/Sky.fx");
-	DebugTexFX = new DebugTexEffect(device, L"FX/DebugTexture.fx");
 }
 
 void Effects::DestroyAll()

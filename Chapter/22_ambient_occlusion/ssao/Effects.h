@@ -24,6 +24,7 @@ public:
 	~BasicEffect();
 
 	void SetWorldViewProj(CXMMATRIX M) { WorldViewProj->SetMatrix(reinterpret_cast<const float*>(&M)); }
+	void SetWorldViewProjTex(CXMMATRIX M) { WorldViewProjTex->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetWorld(CXMMATRIX M) { World->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetWorldInvTranspose(CXMMATRIX M) { WorldInvTranspose->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetTexTransform(CXMMATRIX M) { TexTransform->SetMatrix(reinterpret_cast<const float*>(&M)); }
@@ -37,6 +38,7 @@ public:
 	void SetDiffuseMap(ID3D11ShaderResourceView* tex) { DiffuseMap->SetResource(tex); }
 	void SetCubeMap(ID3D11ShaderResourceView* tex) { CubeMap->SetResource(tex); }
 	void SetShadowMap(ID3D11ShaderResourceView* tex) { ShadowMap->SetResource(tex); }
+	void SetSsaoMap(ID3D11ShaderResourceView* tex) { SsaoMap->SetResource(tex); }
 
 	ID3DX11EffectTechnique* Light1Tech;
 	ID3DX11EffectTechnique* Light2Tech;
@@ -95,6 +97,7 @@ public:
 	ID3DX11EffectTechnique* Light3TexAlphaClipFogReflectTech;
 
 	ID3DX11EffectMatrixVariable* WorldViewProj;
+	ID3DX11EffectMatrixVariable* WorldViewProjTex;
 	ID3DX11EffectMatrixVariable* World;
 	ID3DX11EffectMatrixVariable* WorldInvTranspose;
 	ID3DX11EffectMatrixVariable* TexTransform;
@@ -109,6 +112,7 @@ public:
 	ID3DX11EffectShaderResourceVariable* DiffuseMap;
 	ID3DX11EffectShaderResourceVariable* CubeMap;
 	ID3DX11EffectShaderResourceVariable* ShadowMap;
+	ID3DX11EffectShaderResourceVariable* SsaoMap;
 };
 #pragma endregion
 
@@ -139,6 +143,7 @@ public:
 	~NormalMapEffect();
 
 	void SetWorldViewProj(CXMMATRIX M) { WorldViewProj->SetMatrix(reinterpret_cast<const float*>(&M)); }
+	void SetWorldViewProjTex(CXMMATRIX M) { WorldViewProjTex->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetWorld(CXMMATRIX M) { World->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetWorldInvTranspose(CXMMATRIX M) { WorldInvTranspose->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetTexTransform(CXMMATRIX M) { TexTransform->SetMatrix(reinterpret_cast<const float*>(&M)); }
@@ -153,6 +158,7 @@ public:
 	void SetCubeMap(ID3D11ShaderResourceView* tex) { CubeMap->SetResource(tex); }
 	void SetNormalMap(ID3D11ShaderResourceView* tex) { NormalMap->SetResource(tex); }
 	void SetShadowMap(ID3D11ShaderResourceView* tex) { ShadowMap->SetResource(tex); }
+	void SetSsaoMap(ID3D11ShaderResourceView* tex) { SsaoMap->SetResource(tex); }
 
 	ID3DX11EffectTechnique* Light1Tech;
 	ID3DX11EffectTechnique* Light2Tech;
@@ -211,6 +217,7 @@ public:
 	ID3DX11EffectTechnique* Light3TexAlphaClipFogReflectTech;
 
 	ID3DX11EffectMatrixVariable* WorldViewProj;
+	ID3DX11EffectMatrixVariable* WorldViewProjTex;
 	ID3DX11EffectMatrixVariable* World;
 	ID3DX11EffectMatrixVariable* WorldInvTranspose;
 	ID3DX11EffectMatrixVariable* TexTransform;
@@ -226,6 +233,7 @@ public:
 	ID3DX11EffectShaderResourceVariable* CubeMap;
 	ID3DX11EffectShaderResourceVariable* NormalMap;
 	ID3DX11EffectShaderResourceVariable* ShadowMap;
+	ID3DX11EffectShaderResourceVariable* SsaoMap;
 };
 #pragma endregion
 
@@ -238,6 +246,7 @@ public:
 
 	void SetViewProj(CXMMATRIX M) { ViewProj->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetWorldViewProj(CXMMATRIX M) { WorldViewProj->SetMatrix(reinterpret_cast<const float*>(&M)); }
+	void SetViewProjTex(CXMMATRIX M) { ViewProjTex->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetWorld(CXMMATRIX M) { World->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetWorldInvTranspose(CXMMATRIX M) { WorldInvTranspose->SetMatrix(reinterpret_cast<const float*>(&M)); }
 	void SetShadowTransform(CXMMATRIX M) { ShadowTransform->SetMatrix(reinterpret_cast<const float*>(&M)); }
@@ -258,6 +267,7 @@ public:
 	void SetCubeMap(ID3D11ShaderResourceView* tex) { CubeMap->SetResource(tex); }
 	void SetNormalMap(ID3D11ShaderResourceView* tex) { NormalMap->SetResource(tex); }
 	void SetShadowMap(ID3D11ShaderResourceView* tex) { ShadowMap->SetResource(tex); }
+	void SetSsaoMap(ID3D11ShaderResourceView* tex) { SsaoMap->SetResource(tex); }
 
 	ID3DX11EffectTechnique* Light1Tech;
 	ID3DX11EffectTechnique* Light2Tech;
@@ -317,6 +327,7 @@ public:
 
 	ID3DX11EffectMatrixVariable* ViewProj;
 	ID3DX11EffectMatrixVariable* WorldViewProj;
+	ID3DX11EffectMatrixVariable* ViewProjTex;
 	ID3DX11EffectMatrixVariable* World;
 	ID3DX11EffectMatrixVariable* WorldInvTranspose;
 	ID3DX11EffectMatrixVariable* TexTransform;
@@ -337,6 +348,7 @@ public:
 	ID3DX11EffectShaderResourceVariable* CubeMap;
 	ID3DX11EffectShaderResourceVariable* NormalMap;
 	ID3DX11EffectShaderResourceVariable* ShadowMap;
+	ID3DX11EffectShaderResourceVariable* SsaoMap;
 };
 #pragma endregion
 

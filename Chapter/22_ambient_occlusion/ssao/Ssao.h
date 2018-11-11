@@ -6,6 +6,7 @@ class Camera;
 
 class Ssao
 {
+public:
 	Ssao(ID3D11Device* device, ID3D11DeviceContext* dc, int width, int height, float fovy, float farZ);
 	~Ssao();
 
@@ -55,8 +56,6 @@ private:
 	void BuildRandomVectorTexture();
 
 	void BuildOffsetVectors();
-
-	void DrawFullScreenQuad();
 private:
 	ID3D11Device* md3dDevice;
 	ID3D11DeviceContext* mDC;

@@ -21,4 +21,5 @@ public:
 	static ID3D11DepthStencilState* DrawReflectionDSS;
 	static ID3D11DepthStencilState* NoDoubleBlendDSS;
 	static ID3D11DepthStencilState* LessEqualDSS;
+	static ID3D11DepthStencilState* EqualDSS;
 };
