@@ -1,5 +1,7 @@
+#include "d3dUtil.h"
 #include "TextureMgr.h"
 #include "WICTextureLoader.h"
+#include "DDSTextureLoader.h"
 TextureMgr::TextureMgr() : md3dDevice(0)
 {
 }
@@ -30,7 +32,15 @@ ID3D11ShaderResourceView* TextureMgr::CreateTexture(std::wstring filename)
 	}
 	else
 	{
-		HR(DirectX::CreateWICTextureFromFile(md3dDevice, filename.c_str(), 0, &srv, 0 ));
+		if (StrEndWith(filename, L".dds"))
+		{
+			HR(DirectX::CreateDDSTextureFromFile(md3dDevice, filename.c_str(), 0, &srv, 0));
+		}
+		else
+		{
+			HR(DirectX::CreateWICTextureFromFile(md3dDevice, filename.c_str(), 0, &srv, 0));
+		}
+		
 
 		mTextureSRV[filename] = srv;
 	}

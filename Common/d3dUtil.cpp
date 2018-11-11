@@ -214,6 +214,16 @@ DXErrorMessage(HRESULT hr)
 	
 }
 
+bool StrEndWith(const std::wstring& src, const std::wstring& postFix)
+{
+	if (src.size() > postFix.size())
+	{
+		std::wstring sub = src.substr(src.size() - postFix.size(), postFix.size());
+		return sub == postFix;
+	}
+	return false;
+}
+
 void ExtractFrustumPlanes(XMFLOAT4 planes[6], CXMMATRIX M)
 {
 	//

@@ -95,6 +95,7 @@ public:
 	}
 };
 
+bool StrEndWith(const std::wstring& src, const std::wstring& postFix);
 // Order: left, right, bottom, top, near, far.
 void ExtractFrustumPlanes(XMFLOAT4 planes[6], CXMMATRIX M);
 
