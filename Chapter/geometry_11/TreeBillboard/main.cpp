@@ -982,7 +982,7 @@ void BlendApp::DrawSphere(CXMMATRIX viewProj)
 		md3dImmediateContext->IASetIndexBuffer(mSphereIB, DXGI_FORMAT_R32_UINT, 0);
 		md3dImmediateContext->RSSetState(RenderStates::NoCullRS);
 		pass->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(20 * 3, 0, 0);
+		md3dImmediateContext->DrawIndexed(ICOSAHEDRON_FACE_COUNT * 3, 0, 0);
 		md3dImmediateContext->RSSetState(NULL);
 	}
 }

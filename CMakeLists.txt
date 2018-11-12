@@ -68,5 +68,8 @@ ADD_SUBDIRECTORY(Chapter/21_shadowmapping/shadowmapping)
 ADD_SUBDIRECTORY(Chapter/22_ambient_occlusion/ambientOcclusion)
 ADD_SUBDIRECTORY(Chapter/22_ambient_occlusion/ssao)
 
-
 ADD_SUBDIRECTORY(Chapter/23_meshes/mesh)
+
+ADD_SUBDIRECTORY(Chapter/24_quaternion/quaternion)
+
+ADD_SUBDIRECTORY(Chapter/25_charactor_animation/skinnedMesh)
