@@ -30,6 +30,14 @@ SamplerState samAnisotropic
 	AddressU = WRAP;
 	AddressV = WRAP;
 };
+SamplerState samPoint
+{
+	Filter = MIN_MAG_MIP_POINT;
+	MaxAnisotropy = 4;
+	
+	AddressU = WRAP;
+	AddressV = WRAP;
+};
 
 struct VertexIn
 {
@@ -119,6 +127,78 @@ float4 PS(VertexOut pin,
 	
 	litColor.a = gMaterial.Diffuse.a * texColor.a;
 	return litColor;
+}
+
+float4 PointTexPS(VertexOut pin,
+		  uniform int gLightCount, 
+		  uniform bool gUseTexture, 
+		  uniform bool gAlphaClip, 
+		  uniform bool gFogEnabled,
+		  uniform bool gReflectionEnabled): SV_Target
+{
+	pin.NormalW = normalize(pin.NormalW);
+	
+	float3 toEye = gEyePosW - pin.PosW;
+	
+	float distToEye = length(toEye);
+	
+	toEye /= distToEye;
+	
+	float4 texColor = float4(1.f, 1.f, 1.f, 1.f);
+	if( gUseTexture )
+	{
+		texColor = gDiffuseMap.Sample( samPoint, pin.Tex);
+		if( gAlphaClip )
+		{
+			clip( texColor.a - 0.05f );
+		}
+	}
+	
+	float4 litColor = texColor;
+	if( gLightCount > 0 )
+	{
+		float4 ambient = float4( 0.f, 0.f, 0.f, 0.f );
+		float4 diffuse = float4( 0.f, 0.f, 0.f, 0.f );
+		float4 spec = float4( 0.f, 0.f, 0.f, 0.f );
+		
+		[unroll]
+		for(int i = 0; i < gLightCount; ++i )
+		{
+			float4 A, D, S;
+			ComputeDirectionalLight(gMaterial, gDirLights[i], pin.NormalW, toEye, A, D, S);
+			ambient += A;
+			diffuse += D;
+			spec += S;
+		}
+		
+		litColor = texColor * (ambient + diffuse) + spec;
+		if( gReflectionEnabled )
+		{
+			float3 incident = -toEye;
+			float3 reflectionVector = reflect(incident, pin.NormalW);
+			float4 reflectionColor  = gCubeMap.Sample(samPoint, reflectionVector);
+
+			litColor += gMaterial.Reflect*reflectionColor;
+		}
+	}
+	
+	if( gFogEnabled )
+	{
+		float fogLerp = saturate( ( distToEye - gFogStart ) / gFogRange );
+		litColor = lerp( litColor, gFogColor, fogLerp);
+	}
+	
+	litColor.a = gMaterial.Diffuse.a * texColor.a;
+	return litColor;
+}
+technique11 PointTex
+{
+    pass P0
+    {
+        SetVertexShader( CompileShader( vs_5_0, VS() ) );
+		SetGeometryShader( NULL );
+        SetPixelShader( CompileShader( ps_5_0, PointTexPS(0, true, false, false, false) ) );
+    }
 }
 
 technique11 Light1

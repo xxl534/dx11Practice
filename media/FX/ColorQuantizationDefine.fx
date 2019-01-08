@@ -1,0 +1,1 @@
+#define PALLETE_WIDTH 16
