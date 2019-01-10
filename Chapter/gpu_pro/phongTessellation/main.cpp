@@ -28,6 +28,8 @@ private:
 	SkinnedModel* mSkinnedModel;
 	SkinnedModelInstance* mSkinnedModelInst;
 
+	DirectionalLight mDirLight;
+
 	XMFLOAT4X4 mWorld2;
 	float mPhi;
 
@@ -56,19 +58,24 @@ PhongTessellationApp::PhongTessellationApp(HINSTANCE hInstance)
 	:D3DApp(hInstance)
 	,mSkinnedModel(NULL)
 	,mSkinnedModelInst(NULL)
-	,mMoveSpeed(10)
-	,mPhi(0.4f*MathHelper::Pi)
+	,mMoveSpeed(3)
+	,mPhi(0.5f*MathHelper::Pi)
 	,mCamera(NULL)
 {
 	mMainWndCaption = L"Phong Tessellation";
 
 	mCamera = new Camera();
-	mCamera->LookAt(XMFLOAT3(0.f, 5.f, -10.f), XMFLOAT3(0.f, 0.f, 0.f), XMFLOAT3(0.f, 1.f, 0.f));
+	mCamera->LookAt(XMFLOAT3(0.f, 0.f, -7.f), XMFLOAT3(0.f, 0.f, 0.f), XMFLOAT3(0.f, 1.f, 0.f));
 
 	mLastMousePos.x = 0;
 	mLastMousePos.y = 0;
 
 	mEnable4xMsaa = false;
+
+	mDirLight.Ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	mDirLight.Diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
+	mDirLight.Specular = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
+	mDirLight.Direction = XMFLOAT3(0.57735f, -0.57735f, 0.57735f);
 }
 
 PhongTessellationApp::~PhongTessellationApp()
@@ -105,9 +112,10 @@ bool PhongTessellationApp::Init()
 	mSkinnedModelInst->TimePos = 0.f;
 	mSkinnedModelInst->ClipName = "Take1";
 	mSkinnedModelInst->FinalTransforms.resize(mSkinnedModel->SkinnedData.BoneCount());
-	XMMATRIX modelScale = XMMatrixScaling(0.05f, 0.05f, -0.05f);
+	mSkinnedModelInst->Update(0);
+	XMMATRIX modelScale = XMMatrixScaling(0.25f, 0.25f, -0.25f);
 	XMMATRIX modelRot = XMMatrixRotationY(MathHelper::Pi);
-	XMMATRIX modelOffset = XMMatrixTranslation(0.f, 0.0f, 0.0f);
+	XMMATRIX modelOffset = XMMatrixTranslation(-5.f, 0.0f, 0.0f);
 	XMStoreFloat4x4(&mSkinnedModelInst->World, modelScale*modelRot*modelOffset);
 
 	modelOffset = XMMatrixTranslation(5.f, 0.f, 0.f);
@@ -133,14 +141,19 @@ void PhongTessellationApp::DrawScene()
 
 	Effects::PhongTessSkinnedFX->SetEyePosW(eyePos);
 	Effects::PhongTessSkinnedFX->SetMaxTessDistance(1.0f);
-	Effects::PhongTessSkinnedFX->SetMinTessDistance(25.0f);
+	Effects::PhongTessSkinnedFX->SetMinTessDistance(15.0f);
 	Effects::PhongTessSkinnedFX->SetMinTessFactor(1.0f);
 	Effects::PhongTessSkinnedFX->SetMaxTessFactor(5.0f);
+	Effects::PhongTessSkinnedFX->SetDirLights(mDirLight);
+
+	Effects::BasicSkinnedFX->SetEyePosW(eyePos);
+	Effects::BasicSkinnedFX->SetDirLights(mDirLight);
 
 	ID3DX11EffectTechnique* tech = Effects::PhongTessSkinnedFX->TriangleTexTech;
 	D3DX11_TECHNIQUE_DESC techDesc;
 	tech->GetDesc(&techDesc);
 
+	md3dImmediateContext->RSSetState(RenderStates::CullBackfaceRS);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
 		ID3DX11EffectPass* pPass = tech->GetPassByIndex(p);
@@ -151,6 +164,7 @@ void PhongTessellationApp::DrawScene()
 		Effects::PhongTessSkinnedFX->SetWorld(world);
 		Effects::PhongTessSkinnedFX->SetWorldInvTranspose(worldInvTranspose);
 		Effects::PhongTessSkinnedFX->SetWorldViewProj(worldViewProj);
+		Effects::PhongTessSkinnedFX->SetViewProj(view*proj);
 		Effects::PhongTessSkinnedFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
 		Effects::PhongTessSkinnedFX->SetBoneTransforms(
 			&mSkinnedModelInst->FinalTransforms[0],
@@ -169,7 +183,7 @@ void PhongTessellationApp::DrawScene()
 	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	tech = Effects::BasicSkinnedFX->TexTech;
 	tech->GetDesc(&techDesc);
-
+	md3dImmediateContext->RSSetState(RenderStates::CullBackfaceRS);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
 		ID3DX11EffectPass* pPass = tech->GetPassByIndex(p);
@@ -224,7 +238,7 @@ void PhongTessellationApp::UpdateScene(float dt)
 	{
 		mCamera->Strafe(mMoveSpeed*dt);
 	}
-	mSkinnedModelInst->Update(dt);
+	//mSkinnedModelInst->Update(dt);
 
 	mCamera->UpdateViewMatrix();
 }

@@ -96,10 +96,10 @@ TesselIn PhongTessVS(VertexIn vin)
 
 	vout.PosW = mul(float4(posL, 1.f ), gWorld).xyz;
 	vout.NormalW = mul(normalL, (float3x3)gWorldInvTranspose);
+	vout.NormalW = normalize(vout.NormalW);
 #ifdef VERTEX_TANGENT	
 	vout.TangentW = mul(tangentL, (float3x3)gWorld);
 #endif
-	
 	// Output vertex attributes for interpolation across triangle.
 	vout.Tex = mul(float4(vin.Tex, 0.0f, 1.0f), gTexTransform).xy;
 	
@@ -108,10 +108,10 @@ TesselIn PhongTessVS(VertexIn vin)
 	float d = length(toEye);
 	toEye *= ( 1 / d );
 	
-	float tess = saturate( (gMinTessDistance - d ) / ( gMinTessDistance - gMaxTessDistance ) ) *( 1 - dot( vout.NormalW, toEye ) );
-	
+	float cosView = dot( vout.NormalW, toEye );
+	float cosViewPositive = step( cosView, 0 );
+	float tess = saturate( (gMinTessDistance - d ) / ( gMinTessDistance - gMaxTessDistance ) ) *saturate( cosViewPositive * ( 1 - cosView )  );
 	vout.TessFactor = gMinTessFactor + tess * ( gMaxTessFactor - gMinTessFactor );
-	
 	return vout;
 }
 
@@ -128,8 +128,7 @@ PatchTessTri PatchTriConstantHS(InputPatch<TesselIn,3> patch,
 	pt.EdgeTess[0] = 0.5f*(patch[1].TessFactor + patch[2].TessFactor);
 	pt.EdgeTess[1] = 0.5f*(patch[2].TessFactor + patch[0].TessFactor);
 	pt.EdgeTess[2] = 0.5f*(patch[0].TessFactor + patch[1].TessFactor);
-	pt.InsideTess  = (pt.EdgeTess[0] + pt.EdgeTess[1] + pt.EdgeTess[2])/3;
-	
+	pt.InsideTess  = (pt.EdgeTess[0] + pt.EdgeTess[1] + pt.EdgeTess[2])/3 - 1;
 	return pt;
 }
 
@@ -142,8 +141,8 @@ PatchTessQuad PatchQuadConstantHS(InputPatch<TesselIn,4> patch,
 	pt.EdgeTess[2] = 0.5f*(patch[2].TessFactor + patch[3].TessFactor);
 	pt.EdgeTess[3] = 0.5f*(patch[3].TessFactor + patch[0].TessFactor);
 	
-	pt.InsideTess[0]  = 0.5 * (pt.EdgeTess[1] + pt.EdgeTess[3] );
-	pt.InsideTess[1]  = 0.5 * (pt.EdgeTess[0] + pt.EdgeTess[2] );
+	pt.InsideTess[0]  = 0.5 * (pt.EdgeTess[1] + pt.EdgeTess[3] ) - 1;
+	pt.InsideTess[1]  = 0.5 * (pt.EdgeTess[0] + pt.EdgeTess[2] ) - 1;
 	
 	return pt;
 }
@@ -213,7 +212,7 @@ PixelIn PhongTessTriDS( PatchTessTri patchTess,
 	float3 c2 = project(pos, tri[2].PosW, tri[2].NormalW );
 	float3 q = bary.x*c0 + bary.y*c1 + bary.z*c2;
 	dout.PosW = lerp( pos, q, gShapeFactor );
-	
+	//dout.PosW = pos;
 	dout.NormalW  = bary.x*tri[0].NormalW  + bary.y*tri[1].NormalW  + bary.z*tri[2].NormalW;
 #ifdef VERTEX_TANGENT	
 	dout.TangentW = bary.x*tri[0].TangentW + bary.y*tri[1].TangentW + bary.z*tri[2].TangentW;

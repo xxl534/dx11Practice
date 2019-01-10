@@ -131,6 +131,7 @@ PhongTessSkinnedEffect::PhongTessSkinnedEffect(ID3D11Device* device, const std::
 	TriangleTexTech = mFX->GetTechniqueByName("TriangleTex");
 
 	WorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	ViewProj = mFX->GetVariableByName("gViewProj")->AsMatrix();
 	World = mFX->GetVariableByName("gWorld")->AsMatrix();
 	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
 	TexTransform = mFX->GetVariableByName("gTexTransform")->AsMatrix();
@@ -143,6 +144,7 @@ PhongTessSkinnedEffect::PhongTessSkinnedEffect(ID3D11Device* device, const std::
 	MaxTessFactor = mFX->GetVariableByName("gMaxTessFactor")->AsScalar();
 	DiffuseMap = mFX->GetVariableByName("gDiffuseMap")->AsShaderResource();
 	NormalMap = mFX->GetVariableByName("gNormalMap")->AsShaderResource();
+	DirLights = mFX->GetVariableByName("gDirLights");
 }
 
 PhongTessSkinnedEffect::~PhongTessSkinnedEffect()
@@ -165,6 +167,7 @@ BasicSkinnedEffect::BasicSkinnedEffect(ID3D11Device* device, const std::wstring&
 	Mat = mFX->GetVariableByName("gMaterial");
 	DiffuseMap = mFX->GetVariableByName("gDiffuseMap")->AsShaderResource();
 	NormalMap = mFX->GetVariableByName("gNormalMap")->AsShaderResource();
+	DirLights = mFX->GetVariableByName("gDirLights");
 }
 
 BasicSkinnedEffect::~BasicSkinnedEffect()

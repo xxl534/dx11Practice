@@ -9,6 +9,8 @@ public:
 
 	static ID3D11RasterizerState* WireframesRS;
 	static ID3D11RasterizerState* NoCullRS;
+	static ID3D11RasterizerState* CullBackfaceRS;
+
 
 	static ID3D11BlendState* AlphaToCoverageBS;
 	static ID3D11BlendState* TransparentBS;

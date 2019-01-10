@@ -11,6 +11,6 @@ technique11 TriangleTex
 		SetHullShader( CompileShader( hs_5_0, TriHS() ));
 		SetDomainShader( CompileShader( ds_5_0, PhongTessTriDS()));
 		SetGeometryShader( NULL );
-		SetPixelShader( CompileShader( ps_5_0, BasicLightPS(0,true,false,false,false)));
+		SetPixelShader( CompileShader( ps_5_0, BasicLightPS(1,true,false,false,false)));
 	}
 }

@@ -11,6 +11,6 @@ technique11 Tex
 		SetHullShader( NULL );
 		SetDomainShader( NULL );
 		SetGeometryShader( NULL );
-		SetPixelShader( CompileShader( ps_5_0, BasicLightPS(0,true,false,false,false)));
+		SetPixelShader( CompileShader( ps_5_0, BasicLightPS(1,true,false,false,false)));
 	}
 }
