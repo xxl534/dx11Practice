@@ -1,3 +1,5 @@
+#ifndef LIGHTHELPHER_FX
+#define LIGHTHELPHER_FX
 struct DirectionalLight
 {
 	float4 Ambient;
@@ -188,3 +190,4 @@ float CalcShadowFactor(SamplerComparisonState samShadow,
 	
 	return percentLit /= 9.f;
 }
+#endif

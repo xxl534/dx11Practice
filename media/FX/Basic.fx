@@ -1,5 +1,4 @@
 #include "LightHelper.fx"
-
 cbuffer cbPerFrame
 {
 	DirectionalLight gDirLights[3];

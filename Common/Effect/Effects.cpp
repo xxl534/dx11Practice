@@ -124,77 +124,72 @@ BasicEffect::~BasicEffect()
 }
 #pragma endregion
 
-#pragma region ColorQuantPalleteEffect
-ColorQuantPalleteEffect::ColorQuantPalleteEffect(ID3D11Device* device, const std::wstring& filename)
-	:Effect(device,filename)
+#pragma region PhongTessSkinnedEffect
+PhongTessSkinnedEffect::PhongTessSkinnedEffect(ID3D11Device* device, const std::wstring& filename)
+	: Effect(device, filename)
 {
-	InitTech = mFX->GetTechniqueByName("Init");
-	CalcColorTech = mFX->GetTechniqueByName("CalcColor");
+	TriangleTexTech = mFX->GetTechniqueByName("TriangleTex");
 
-	mPalleteMap = mFX->GetVariableByName("gPallete")->AsUnorderedAccessView();
-	mPalleteCountMap = mFX->GetVariableByName("gPalleteCount")->AsUnorderedAccessView();
+	WorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	World = mFX->GetVariableByName("gWorld")->AsMatrix();
+	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
+	TexTransform = mFX->GetVariableByName("gTexTransform")->AsMatrix();
+	EyePosW = mFX->GetVariableByName("gEyePosition")->AsVector();
+	BoneTransforms = mFX->GetVariableByName("gBoneTransforms")->AsMatrix();
+	Mat = mFX->GetVariableByName("gMaterial");
+	MaxTessDistance = mFX->GetVariableByName("gMaxTessDistance")->AsScalar();
+	MinTessDistance = mFX->GetVariableByName("gMinTessDistance")->AsScalar();
+	MinTessFactor = mFX->GetVariableByName("gMinTessFactor")->AsScalar();
+	MaxTessFactor = mFX->GetVariableByName("gMaxTessFactor")->AsScalar();
+	DiffuseMap = mFX->GetVariableByName("gDiffuseMap")->AsShaderResource();
+	NormalMap = mFX->GetVariableByName("gNormalMap")->AsShaderResource();
 }
 
-ColorQuantPalleteEffect::~ColorQuantPalleteEffect()
+PhongTessSkinnedEffect::~PhongTessSkinnedEffect()
 {
-
 }
 #pragma endregion
 
-#pragma region ColorQuantIterateEffect
-ColorQuantIterateEffect::ColorQuantIterateEffect(ID3D11Device* device, const std::wstring& filename)
-	:Effect(device, filename)
+#pragma region BasicSkinnedEffect
+BasicSkinnedEffect::BasicSkinnedEffect(ID3D11Device* device, const std::wstring& filename)
+	: Effect(device, filename)
 {
-	IterateTech = mFX->GetTechniqueByName("Iterate");
+	TexTech = mFX->GetTechniqueByName("Tex");
 
-	mPointSize = mFX->GetVariableByName("gPointSize")->AsScalar();
-	mInputMap = mFX->GetVariableByName("gInput")->AsShaderResource();
-	mPalleteMap = mFX->GetVariableByName("gInputPallete")->AsShaderResource();
+	WorldViewProj = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
+	World = mFX->GetVariableByName("gWorld")->AsMatrix();
+	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
+	TexTransform = mFX->GetVariableByName("gTexTransform")->AsMatrix();
+	EyePosW = mFX->GetVariableByName("gEyePosition")->AsVector();
+	BoneTransforms = mFX->GetVariableByName("gBoneTransforms")->AsMatrix();
+	Mat = mFX->GetVariableByName("gMaterial");
+	DiffuseMap = mFX->GetVariableByName("gDiffuseMap")->AsShaderResource();
+	NormalMap = mFX->GetVariableByName("gNormalMap")->AsShaderResource();
 }
 
-ColorQuantIterateEffect::~ColorQuantIterateEffect()
+BasicSkinnedEffect::~BasicSkinnedEffect()
 {
 }
-#pragma  endregion
-
-#pragma region ColorQuantOutputEffect
-ColorQuantOutputEffect::ColorQuantOutputEffect(ID3D11Device* device, const std::wstring& filename)
-	:Effect(device, filename)
-{
-	OutputTech = mFX->GetTechniqueByName("Output");
-
-	mOutputMap = mFX->GetVariableByName("gOutput")->AsUnorderedAccessView();
-	mOutputPalleteUsedMap = mFX->GetVariableByName("gOutputPalleteUsed")->AsUnorderedAccessView();
-	mInputMap = mFX->GetVariableByName("gInput")->AsShaderResource();
-	mPalleteMap = mFX->GetVariableByName("gPallete")->AsShaderResource();
-}
-
-ColorQuantOutputEffect::~ColorQuantOutputEffect()
-{
-
-}
-#pragma  endregion
+#pragma endregion
 
 #pragma region Effects
 
 BasicEffect* Effects::BasicFX = NULL;
-ColorQuantPalleteEffect* Effects::ColorQuantPalleteFX = NULL;
-ColorQuantIterateEffect* Effects::ColorQuantIterateFX = NULL;
-ColorQuantOutputEffect* Effects::ColorQuantOutputFX = NULL;
+PhongTessSkinnedEffect* Effects::PhongTessSkinnedFX = NULL;
+
+BasicSkinnedEffect* Effects::BasicSkinnedFX = NULL;
 
 void Effects::InitAll(ID3D11Device* device)
 {
-	ColorQuantPalleteFX = new ColorQuantPalleteEffect(device, L"FX/ColorQuantizationPallete.fxo");
-	ColorQuantIterateFX = new ColorQuantIterateEffect(device, L"FX/ColorQuantizationIterate.fxo");
-	ColorQuantOutputFX = new ColorQuantOutputEffect(device, L"FX/ColorQuantizationOutput.fxo");
-	BasicFX = new BasicEffect(device, L"FX/Basic.fx");
+	BasicSkinnedFX = new BasicSkinnedEffect(device, L"FX/BasicSkinnedEffect.fx");
+	PhongTessSkinnedFX = new PhongTessSkinnedEffect(device, L"FX/PhongTessellationSkinnedEffect.fx");
+	BasicFX = new BasicEffect(device, L"FX/Basic.fxo");
 }
 
 void Effects::DestroyAll()
 {
 	SafeDelete(BasicFX);
-	SafeDelete(ColorQuantPalleteFX);
-	SafeDelete(ColorQuantIterateFX);
-	SafeDelete(ColorQuantOutputFX);
+	SafeDelete(PhongTessSkinnedFX);
+	SafeDelete(BasicSkinnedFX);
 }
 #pragma endregion

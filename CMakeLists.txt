@@ -75,3 +75,4 @@ ADD_SUBDIRECTORY(Chapter/24_quaternion/quaternion)
 ADD_SUBDIRECTORY(Chapter/25_charactor_animation/skinnedMesh)
 
 ADD_SUBDIRECTORY(Chapter/gpu_pro/colorQuantization)
+ADD_SUBDIRECTORY(Chapter/gpu_pro/phongTessellation)
